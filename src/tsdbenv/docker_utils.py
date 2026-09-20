@@ -14,6 +14,15 @@ from tsdbenv.engine_config import Engine, get_engine_from_cli_or_env, get_socket
 class DockerClient:
     """Wrapper around Docker SDK for container lifecycle management."""
 
+    REQUIRED_EXTENSIONS = (
+        "timescaledb",
+        "postgres_fdw",
+        "pg_buffercache",
+        "pg_stat_statements",
+        "timescaledb_toolkit",
+        "vector",
+    )
+
     def __init__(self, engine: Optional[str] = None) -> None:
         """Initialize Docker client with engine-specific socket.
 
@@ -72,7 +81,9 @@ class DockerClient:
                         self.client = docker.DockerClient(base_url=docker_host)
                     else:
                         # No socket and no DOCKER_HOST, try anyway
-                        self.client = docker.DockerClient(base_url=f"unix://{socket_path}")
+                        self.client = docker.DockerClient(
+                            base_url=f"unix://{socket_path}"
+                        )
         except Exception as e:
             engine_name = engine_obj.value.capitalize()
             raise RuntimeError(
@@ -128,6 +139,42 @@ class DockerClient:
             return image.id
         except docker.errors.BuildError as e:
             raise RuntimeError(f"Docker build failed: {e}")
+
+    def image_exists(self, tag: str) -> bool:
+        """Return whether an image tag already exists in the local engine."""
+        try:
+            self.client.images.get(tag)
+            return True
+        except docker.errors.ImageNotFound:
+            return False
+
+    def prepare_image(
+        self,
+        tag: str,
+        dockerfile_dir: str,
+        build_args: Optional[Dict[str, str]] = None,
+        rebuild: bool = False,
+    ) -> str:
+        """Reuse, pull, or build an image in fastest-first order.
+
+        Existing local images are reused unless ``rebuild`` is requested. On a
+        cache miss, a prebuilt registry image is pulled. If it is unavailable,
+        the image is built locally as a resilient fallback.
+        """
+        if not rebuild and self.image_exists(tag):
+            return self.client.images.get(tag).id
+
+        if not rebuild:
+            try:
+                return self.client.images.pull(tag).id
+            except docker.errors.APIError:
+                pass
+
+        return self.build_image(
+            dockerfile_dir=dockerfile_dir,
+            tag=tag,
+            build_args=build_args,
+        )
 
     def create_container(
         self,
@@ -235,9 +282,7 @@ class DockerClient:
         return result
 
     def wait_for_postgres(self, container_id: str, timeout: int = 30) -> bool:
-        """Wait for PostgreSQL to be ready for connections.
-
-        Polls container logs for "database system is ready" message.
+        """Wait until PostgreSQL and all required extensions are ready.
 
         Args:
             container_id: Container ID
@@ -249,16 +294,48 @@ class DockerClient:
         Raises:
             TimeoutError: If PostgreSQL doesn't start within timeout
         """
-        start = time.time()
-        while time.time() - start < timeout:
+        container = self.client.containers.get(container_id)
+        extension_names = ", ".join(
+            f"'{extension}'" for extension in self.REQUIRED_EXTENSIONS
+        )
+        readiness_query = (
+            "SELECT count(*) FROM pg_extension "
+            f"WHERE extname IN ({extension_names});"
+        )
+        expected_count = str(len(self.REQUIRED_EXTENSIONS))
+        start = time.monotonic()
+        while time.monotonic() - start < timeout:
             try:
-                logs = self.get_container_logs(container_id)
-                if "database system is ready to accept connections" in logs:
+                container.reload()
+                if container.status in ("exited", "dead"):
+                    logs = container.logs(stdout=True, stderr=True).decode("utf-8")
+                    raise RuntimeError(
+                        f"Container exited before PostgreSQL was ready:\n{logs}"
+                    )
+
+                result = container.exec_run(
+                    [
+                        "psql",
+                        "-U",
+                        "postgres",
+                        "-d",
+                        "tsdb",
+                        "-tAc",
+                        readiness_query,
+                    ],
+                    user="postgres",
+                )
+                output = result.output.decode("utf-8").strip()
+                if result.exit_code == 0 and output == expected_count:
                     return True
+            except RuntimeError:
+                raise
             except Exception:
                 pass
             time.sleep(1)
-        raise TimeoutError(f"PostgreSQL not ready after {timeout}s")
+        raise TimeoutError(
+            f"PostgreSQL and required extensions not ready after {timeout}s"
+        )
 
     def create_tablespaces(
         self, container_id: str, tablespace_names: List[str]

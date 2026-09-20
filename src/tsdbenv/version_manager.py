@@ -144,8 +144,9 @@ class VersionManager:
         if cached is not None:
             if auto_refresh_stale and self._is_cache_stale(cached):
                 return self.refresh()
+            self.matrix = cached
             return cached
-        return self.fetch_from_docker_hub()
+        return self.refresh()
 
     def _save_to_cache(self, matrix: VersionMatrix) -> None:
         """Save matrix to cache file."""

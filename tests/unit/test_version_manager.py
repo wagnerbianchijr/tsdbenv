@@ -68,3 +68,17 @@ def test_version_manager_get_or_fetch_uses_cache(temp_state_dir, sample_version_
 
     assert matrix is not None
     assert matrix.is_compatible("14", "2.8.0")
+
+
+def test_version_manager_get_or_fetch_saves_cache_on_miss(
+    temp_state_dir, sample_version_matrix
+):
+    """Test the initial compatibility fetch is cached for later commands."""
+    vm = VersionManager(cache_dir=temp_state_dir)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(vm, "fetch_from_docker_hub", lambda: sample_version_matrix)
+        matrix = vm.get_or_fetch()
+
+    assert matrix == sample_version_matrix
+    assert (temp_state_dir / "version_matrix.json").exists()

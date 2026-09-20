@@ -1,0 +1,44 @@
+name: Publish PostgreSQL Images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "src/tsdbenv/dockerfiles/**"
+      - ".github/workflows/publish-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: PostgreSQL ${{ matrix.postgres }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["14", "15", "16", "17", "18"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: src/tsdbenv/dockerfiles
+          push: true
+          build-args: |
+            PG_VERSION=${{ matrix.postgres }}
+          tags: ghcr.io/${{ github.repository_owner }}/tsdbenv:pg${{ matrix.postgres }}
+          cache-from: type=gha,scope=pg${{ matrix.postgres }}
+          cache-to: type=gha,mode=max,scope=pg${{ matrix.postgres }}

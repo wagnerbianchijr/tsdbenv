@@ -119,6 +119,7 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 - `--init PATH` — SQL file to execute after container creation
 - `--tablespaces NAMES` — Comma-separated tablespace names to create
 - `--force` — Skip version compatibility check
+- `--rebuild` — Rebuild the local image instead of reusing or pulling one
 - `--verbose` — Enable detailed logging with timestamps
 
 **Features:**
@@ -127,6 +128,24 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 - Validates PostgreSQL × TimescaleDB version compatibility
 - Secure password generation (alphanumeric only)
 - Creates a Tiger Cloud-compatible `tsdbadmin` role with the default `tsdb` database
+
+### Fast container creation
+
+`tsdbenv` prepares images in fastest-first order:
+
+1. Reuse `ghcr.io/wagnerbianchijr/tsdbenv:pg<major>` when it exists locally.
+2. Pull the prebuilt image from GitHub Container Registry on a cache miss.
+3. Build locally if the registry image is unavailable.
+
+Use `--rebuild` after changing the Dockerfile or initialization scripts:
+
+```bash
+tsdbenv new --postgres 15 --timescaledb 2.11.0 --rebuild
+```
+
+Compatibility data is cached for 24 hours. Container readiness is reported only
+after PostgreSQL has created the `tsdb` database and all required extensions,
+including `timescaledb_toolkit`.
 
 ### list
 List all containers.

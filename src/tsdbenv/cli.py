@@ -3,26 +3,25 @@
 
 import hashlib
 import sys
-import click
-import time
 import threading
-
-
+import time
 from datetime import datetime
 from pathlib import Path
+
+import click
 from click.formatting import HelpFormatter
 from tabulate import tabulate
+
 from tsdbenv import __version__
-from tsdbenv.engine_config import Engine
-from tsdbenv.environment import load_environment
 from tsdbenv.config_handler import ConfigHandler
 from tsdbenv.docker_utils import DockerClient
+from tsdbenv.engine_config import Engine
+from tsdbenv.environment import load_environment
 from tsdbenv.models import Container
 from tsdbenv.network_validator import NetworkValidator
 from tsdbenv.state_tracker import StateTracker
 from tsdbenv.utils import ensure_state_dir, generate_password
 from tsdbenv.version_manager import VersionManager
-
 
 load_environment()
 
@@ -82,10 +81,13 @@ def spinner(message: str):
 
 class _NoOpContext:
     """Context manager that does nothing."""
+
     def __enter__(self):
         return self
+
     def __exit__(self, *args):
         pass
+
 
 class CustomGroup(click.Group):
     """Custom group to format command help with short flags."""
@@ -143,7 +145,16 @@ def _expand_short_aliases():
                 sys.argv.insert(1, engine_flag)
             break
 
-    aliases = {"-n": "new", "-l": "list", "-r": "remove", "-c": "connectstring", "-g": "versionrefresh", "-m": "matrix", "-a": "removeall", "-t": "tablespaces"}
+    aliases = {
+        "-n": "new",
+        "-l": "list",
+        "-r": "remove",
+        "-c": "connectstring",
+        "-g": "versionrefresh",
+        "-m": "matrix",
+        "-a": "removeall",
+        "-t": "tablespaces",
+    }
 
     # Find the first positional argument (command) - skip option names and their values
     i = 1
@@ -170,6 +181,7 @@ def _expand_short_aliases():
 
 
 _expand_short_aliases()
+
 
 def get_dockerfiles_dir() -> Path:
     """Get the path to the dockerfiles directory."""
@@ -207,7 +219,11 @@ def init_cli_state(engine: Engine, verbose: bool = False) -> None:
         raise click.Abort()
 
 
-@click.command(cls=CustomGroup, context_settings={"help_option_names": ["-h", "--help"]}, invoke_without_command=True)
+@click.command(
+    cls=CustomGroup,
+    context_settings={"help_option_names": ["-h", "--help"]},
+    invoke_without_command=True,
+)
 @click.option("-v", "--version", is_flag=True, help="Show version and exit")
 @click.option(
     "-e",
@@ -238,14 +254,30 @@ def main(ctx, version, engine, verbose):
 @click.option("-i", "--init", type=click.Path(exists=True), help="SQL file to execute")
 @click.option("-t", "--tablespaces", help="Comma-separated tablespace names")
 @click.option("--force", is_flag=True, help="Skip version compatibility check")
+@click.option(
+    "--rebuild",
+    is_flag=True,
+    help="Rebuild the local image instead of reusing a cached or prebuilt image",
+)
 @click.option("--verbose", is_flag=True, help="Enable verbose logging")
-def new(postgres, timescaledb, port, config, bind_ip, init, tablespaces, force, verbose):
+def new(
+    postgres,
+    timescaledb,
+    port,
+    config,
+    bind_ip,
+    init,
+    tablespaces,
+    force,
+    rebuild,
+    verbose,
+):
     """Create PostgreSQL + TimescaleDB container"""
     if verbose:
         cli_state.verbose = True
-    with spinner("Checking for latest TimescaleDB versions..."):
-        log("Checking for latest TimescaleDB versions...")
-        cli_state.version_manager.refresh()
+    with spinner("Loading TimescaleDB compatibility data..."):
+        log("Loading TimescaleDB compatibility data...")
+        cli_state.version_manager.get_or_fetch()
 
     if not postgres:
         postgres = click.prompt("PostgreSQL version", type=str)
@@ -253,8 +285,12 @@ def new(postgres, timescaledb, port, config, bind_ip, init, tablespaces, force, 
         timescaledb = click.prompt("TimescaleDB version", type=str)
 
     if not force and not cli_state.version_manager.is_compatible(postgres, timescaledb):
-        compatible_versions = cli_state.version_manager.get_compatible_timescaledb_versions(postgres)
-        click.echo(f"ERROR TSDB {timescaledb} is not compatible with PostgreSQL {postgres}")
+        compatible_versions = (
+            cli_state.version_manager.get_compatible_timescaledb_versions(postgres)
+        )
+        click.echo(
+            f"ERROR TSDB {timescaledb} is not compatible with PostgreSQL {postgres}"
+        )
         if compatible_versions:
             versions_str = ", ".join(compatible_versions)
             click.echo(f"   Compatible TSDB versions: {versions_str}")
@@ -287,14 +323,15 @@ def new(postgres, timescaledb, port, config, bind_ip, init, tablespaces, force, 
 
     try:
         dockerfile_dir = str(get_dockerfiles_dir())
-        image_tag = f"tsdbenv:pg{postgres}-latest"
-        cli_state.docker_client.build_image(
-            dockerfile_dir=dockerfile_dir,
+        image_tag = f"ghcr.io/wagnerbianchijr/tsdbenv:pg{postgres}"
+        cli_state.docker_client.prepare_image(
             tag=image_tag,
+            dockerfile_dir=dockerfile_dir,
             build_args={"PG_VERSION": postgres},
+            rebuild=rebuild,
         )
     except Exception as e:
-        click.echo(f"ERROR Failed to build Docker image: {e}")
+        click.echo(f"ERROR Failed to prepare container image: {e}")
         raise click.Abort()
 
     container_id = cli_state.docker_client.create_container(
@@ -339,7 +376,9 @@ def new(postgres, timescaledb, port, config, bind_ip, init, tablespaces, force, 
             ts_list = [ts.strip() for ts in tablespaces.split(",")]
             with spinner(f"Creating {len(ts_list)} tablespace(s)..."):
                 log(f"Creating {len(ts_list)} tablespace(s)...")
-                results = cli_state.docker_client.create_tablespaces(container_id, ts_list)
+                results = cli_state.docker_client.create_tablespaces(
+                    container_id, ts_list
+                )
             successful = sum(1 for v in results.values() if v)
             log(f"Created {successful}/{len(ts_list)} tablespace(s)")
             if successful < len(ts_list):
@@ -365,7 +404,9 @@ def list_cmd():
         if click.confirm(f"Container '{s.name}' unused for 5+ days. Remove?"):
             cli_state.state_tracker.delete_container(s.name)
 
-    click.echo(f"\n{'Name':<15} {'PG':<5} {'TSDB':<10} {'IP':<15} {'Port':<6} {'Engine':<8}")
+    click.echo(
+        f"\n{'Name':<15} {'PG':<5} {'TSDB':<10} {'IP':<15} {'Port':<6} {'Engine':<8}"
+    )
     click.echo("-" * 65)
     for c in containers:
         click.echo(
@@ -387,7 +428,11 @@ def logs(container_name):
         )
 
     container = next(
-        (c for c in cli_state.state_tracker.load_containers() if c.name == container_name),
+        (
+            c
+            for c in cli_state.state_tracker.load_containers()
+            if c.name == container_name
+        ),
         None,
     )
     if not container:
@@ -413,7 +458,11 @@ def remove(container_name):
         )
 
     container = next(
-        (c for c in cli_state.state_tracker.load_containers() if c.name == container_name),
+        (
+            c
+            for c in cli_state.state_tracker.load_containers()
+            if c.name == container_name
+        ),
         None,
     )
     if not container:
@@ -437,7 +486,9 @@ def removeall(force):
 
     click.echo(f"Found {len(containers)} container(s):")
     for c in containers:
-        click.echo(f"  - {c.name} (PG {c.postgres_version}, TSDB {c.timescaledb_version})")
+        click.echo(
+            f"  - {c.name} (PG {c.postgres_version}, TSDB {c.timescaledb_version})"
+        )
 
     if not force and not click.confirm("Remove all containers?"):
         click.echo("Aborted.")
@@ -473,7 +524,11 @@ def connectstring(container_name):
         )
 
     container = next(
-        (c for c in cli_state.state_tracker.load_containers() if c.name == container_name),
+        (
+            c
+            for c in cli_state.state_tracker.load_containers()
+            if c.name == container_name
+        ),
         None,
     )
     if not container:
@@ -500,7 +555,11 @@ def create_tablespaces(container_name, names):
         )
 
     container = next(
-        (c for c in cli_state.state_tracker.load_containers() if c.name == container_name),
+        (
+            c
+            for c in cli_state.state_tracker.load_containers()
+            if c.name == container_name
+        ),
         None,
     )
     if not container:
@@ -513,7 +572,9 @@ def create_tablespaces(container_name, names):
     try:
         ts_list = [ts.strip() for ts in names.split(",")]
         click.echo(f"[ACTION] Creating {len(ts_list)} tablespace(s)...")
-        results = cli_state.docker_client.create_tablespaces(container.docker_id, ts_list)
+        results = cli_state.docker_client.create_tablespaces(
+            container.docker_id, ts_list
+        )
         successful = sum(1 for v in results.values() if v)
         click.echo(f"[OK] Created {successful}/{len(ts_list)} tablespace(s)")
         if successful < len(ts_list):
@@ -532,7 +593,9 @@ def versionrefresh():
     matrix = cli_state.version_manager.refresh()
     versions_found = sum(len(v) for v in matrix.postgres_versions.values())
     pg_versions = len(matrix.postgres_versions)
-    click.echo(f"[OK] Updated: {pg_versions} PostgreSQL versions, {versions_found} TimescaleDB versions")
+    click.echo(
+        f"[OK] Updated: {pg_versions} PostgreSQL versions, {versions_found} TimescaleDB versions"
+    )
 
 
 @main.command("matrix")
@@ -597,6 +660,7 @@ def show_interactive_menu() -> None:
             init=None,
             tablespaces=None,
             force=False,
+            rebuild=False,
         )
     elif choice == "list":
         ctx = click.get_current_context()

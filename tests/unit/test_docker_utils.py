@@ -45,9 +45,14 @@ def test_init_with_docker_engine(mock_docker_client):
 def test_init_with_podman_engine(mock_docker_client):
     """DockerClient initializes with explicit podman engine."""
     import os
-    with patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client_ctor, \
-         patch("tsdbenv.docker_utils.Path.exists", return_value=False), \
-         patch.dict(os.environ, {"DOCKER_HOST": ""}, clear=False):
+
+    with patch(
+        "tsdbenv.docker_utils.docker.DockerClient"
+    ) as mock_docker_client_ctor, patch(
+        "tsdbenv.docker_utils.Path.exists", return_value=False
+    ), patch.dict(
+        os.environ, {"DOCKER_HOST": ""}, clear=False
+    ):
         fake_client = MagicMock()
         fake_client.ping.return_value = True
         mock_docker_client_ctor.return_value = fake_client
@@ -178,6 +183,88 @@ def test_create_container_other_api_error_propagates():
                 environment={},
                 ports={5432: 5432},
             )
+
+
+def test_image_exists_for_local_tag(mock_docker_client):
+    """Test local image lookup succeeds without a registry request."""
+    client = DockerClient()
+
+    assert client.image_exists("example/image:pg15") is True
+    mock_docker_client.images.get.assert_called_once_with("example/image:pg15")
+
+
+def test_image_exists_returns_false_when_missing(mock_docker_client):
+    """Test missing local image is reported without raising."""
+    mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("missing")
+    client = DockerClient()
+
+    assert client.image_exists("example/image:pg15") is False
+
+
+def test_prepare_image_reuses_local_image(mock_docker_client):
+    """Test cached images avoid pull and build work."""
+    image = MagicMock(id="image-123")
+    mock_docker_client.images.get.return_value = image
+    client = DockerClient()
+
+    result = client.prepare_image(
+        tag="example/image:pg15",
+        dockerfile_dir="/tmp/dockerfiles",
+        build_args={"PG_VERSION": "15"},
+    )
+
+    assert result == "image-123"
+    mock_docker_client.images.pull.assert_not_called()
+
+
+def test_prepare_image_pulls_on_cache_miss(mock_docker_client):
+    """Test a prebuilt registry image is preferred over a local build."""
+    mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("missing")
+    mock_docker_client.images.pull.return_value = MagicMock(id="pulled-123")
+    client = DockerClient()
+
+    with patch.object(client, "build_image") as build_image:
+        result = client.prepare_image(
+            tag="example/image:pg15",
+            dockerfile_dir="/tmp/dockerfiles",
+        )
+
+    assert result == "pulled-123"
+    build_image.assert_not_called()
+
+
+def test_prepare_image_builds_when_pull_fails(mock_docker_client):
+    """Test registry failures fall back to a local build."""
+    mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("missing")
+    mock_docker_client.images.pull.side_effect = docker.errors.APIError("unavailable")
+    client = DockerClient()
+
+    with patch.object(client, "build_image", return_value="built-123") as build_image:
+        result = client.prepare_image(
+            tag="example/image:pg15",
+            dockerfile_dir="/tmp/dockerfiles",
+            build_args={"PG_VERSION": "15"},
+        )
+
+    assert result == "built-123"
+    build_image.assert_called_once()
+
+
+def test_prepare_image_rebuilds_when_requested(mock_docker_client):
+    """Test --rebuild bypasses both local image reuse and registry pulls."""
+    client = DockerClient()
+
+    with patch.object(client, "build_image", return_value="built-123") as build_image:
+        result = client.prepare_image(
+            tag="example/image:pg15",
+            dockerfile_dir="/tmp/dockerfiles",
+            rebuild=True,
+        )
+
+    assert result == "built-123"
+    mock_docker_client.images.get.assert_not_called()
+    mock_docker_client.images.pull.assert_not_called()
+    build_image.assert_called_once()
 
 
 def test_start_container():
@@ -316,30 +403,46 @@ def test_list_containers():
 
 
 def test_wait_for_postgres_ready_immediately():
-    """Test wait_for_postgres when database is ready immediately."""
+    """Test readiness requires the initialized extension set."""
     with patch("tsdbenv.docker_utils.docker.from_env") as mock_from_env:
         fake_client = MagicMock()
         fake_client.ping.return_value = True
         mock_from_env.return_value = fake_client
 
         client = DockerClient()
-        with patch.object(
-            client,
-            "get_container_logs",
-            return_value="database system is ready to accept connections",
-        ):
-            assert client.wait_for_postgres("abc123", timeout=5) is True
+        fake_container = MagicMock(status="running")
+        fake_container.exec_run.return_value = MagicMock(exit_code=0, output=b"6\n")
+        fake_client.containers.get.return_value = fake_container
+
+        assert client.wait_for_postgres("abc123", timeout=5) is True
+        fake_container.exec_run.assert_called_once()
 
 
 def test_wait_for_postgres_timeout():
-    """Test wait_for_postgres timeout."""
+    """Test readiness times out while extensions are incomplete."""
     with patch("tsdbenv.docker_utils.docker.from_env") as mock_from_env:
         fake_client = MagicMock()
         fake_client.ping.return_value = True
         mock_from_env.return_value = fake_client
 
         client = DockerClient()
-        with patch.object(client, "get_container_logs", return_value="starting up..."):
-            with patch("tsdbenv.docker_utils.time.sleep"):
-                with pytest.raises(TimeoutError, match="PostgreSQL not ready after"):
-                    client.wait_for_postgres("abc123", timeout=1)
+        fake_container = MagicMock(status="running")
+        fake_container.exec_run.return_value = MagicMock(exit_code=0, output=b"5\n")
+        fake_client.containers.get.return_value = fake_container
+
+        with patch("tsdbenv.docker_utils.time.monotonic", side_effect=[0, 0, 2]), patch(
+            "tsdbenv.docker_utils.time.sleep"
+        ):
+            with pytest.raises(TimeoutError, match="required extensions not ready"):
+                client.wait_for_postgres("abc123", timeout=1)
+
+
+def test_wait_for_postgres_fails_when_container_exits(mock_docker_client):
+    """Test startup failures surface container logs immediately."""
+    client = DockerClient()
+    fake_container = MagicMock(status="exited")
+    fake_container.logs.return_value = b"initialization failed"
+    mock_docker_client.containers.get.return_value = fake_container
+
+    with pytest.raises(RuntimeError, match="initialization failed"):
+        client.wait_for_postgres("abc123", timeout=5)

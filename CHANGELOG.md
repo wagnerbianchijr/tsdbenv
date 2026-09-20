@@ -7,10 +7,18 @@ All notable changes to this project will be documented in this file.
 ### Added
 - TimescaleDB Toolkit is now installed from the official TimescaleDB HA image
   and enabled in the default `tsdb` database.
+- Prebuilt PostgreSQL 14–18 images are published to GitHub Container Registry.
+- `tsdbenv new --rebuild` explicitly refreshes a local image.
 
 ### Changed
 - Extension initialization now fails immediately when a required extension
   cannot be created instead of silently leaving a partially configured database.
+- Container creation now reuses a local image, pulls a prebuilt image on a cache
+  miss, and builds locally only as a fallback.
+- Compatibility data uses its 24-hour cache instead of refreshing on every
+  `new` command.
+- Readiness checks query the initialized database and required extensions rather
+  than matching an early PostgreSQL log message.
 
 ## [1.1.0] - 2026-09-19
 

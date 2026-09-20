@@ -32,3 +32,4 @@ def test_cli_subcommand_help(cli_runner):
     result = cli_runner.invoke(main, ["new", "--help"])
     assert result.exit_code == 0
     assert "postgres" in result.output.lower()
+    assert "--rebuild" in result.output
