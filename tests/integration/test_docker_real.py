@@ -295,7 +295,7 @@ class TestRealTsdbenvImage:
         1. Creates container with tsdbenv image
         2. Waits for PostgreSQL ready
         3. Connects as tsdbadmin with the provided password
-        4. Runs a query to verify connection works
+        4. Verifies the role attributes match Tiger Cloud
         """
         client = DockerClient()
         container_name = f"tsdbenv-admin-{uuid.uuid4().hex[:8]}"
@@ -340,10 +340,16 @@ class TestRealTsdbenvImage:
                         dbname="postgres",
                     ) as conn:
                         with conn.cursor() as cur:
-                            cur.execute("SELECT 1 as test_result")
+                            cur.execute(
+                                """
+                                SELECT rolsuper, rolcreaterole, rolreplication
+                                FROM pg_roles
+                                WHERE rolname = current_user
+                                """
+                            )
                             result = cur.fetchone()
                             assert result is not None
-                            assert result[0] == 1
+                            assert result == (False, True, True)
                     break
                 except psycopg.OperationalError as e:
                     if attempt < max_retries - 1:

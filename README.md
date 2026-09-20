@@ -126,7 +126,7 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 - Auto-detects first available port (5432, 5433, 5434, ...)
 - Validates PostgreSQL × TimescaleDB version compatibility
 - Secure password generation (alphanumeric only)
-- Creates `tsdbadmin` superuser with default `tsdb` database
+- Creates a Tiger Cloud-compatible `tsdbadmin` role with the default `tsdb` database
 
 ### list
 List all containers.
@@ -271,7 +271,9 @@ tsdbenv new --postgres 16 --timescaledb 2.29.2 --verbose  # Both syntaxes work
 
 ## Connection
 
-All containers include a `tsdbadmin` superuser with a secure generated password.
+All containers include a `tsdbadmin` role with a secure generated password. It
+matches Tiger Cloud's key administrator attributes: `NOSUPERUSER`, `CREATEROLE`,
+and `REPLICATION`.
 
 **Default database:** `tsdb`  
 **Default user:** `tsdbadmin`

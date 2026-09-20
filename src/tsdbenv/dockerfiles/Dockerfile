@@ -25,4 +25,4 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
 # This script executes automatically when PostgreSQL starts for the first time
 # Use wrapper script to handle password variable substitution
 COPY init-tsdbadmin.sh /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh
-RUN chmod +x /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh
+RUN chmod 755 /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh
