@@ -14,6 +14,7 @@ from click.formatting import HelpFormatter
 from tabulate import tabulate
 from tsdbenv import __version__
 from tsdbenv.engine_config import Engine
+from tsdbenv.environment import load_environment
 from tsdbenv.config_handler import ConfigHandler
 from tsdbenv.docker_utils import DockerClient
 from tsdbenv.models import Container
@@ -21,6 +22,9 @@ from tsdbenv.network_validator import NetworkValidator
 from tsdbenv.state_tracker import StateTracker
 from tsdbenv.utils import ensure_state_dir, generate_password
 from tsdbenv.version_manager import VersionManager
+
+
+load_environment()
 
 
 class Spinner:

@@ -16,6 +16,7 @@ setup(
     install_requires=[
         "pydantic>=2.0",
         "click>=8.1",
+        "python-dotenv>=1.0",
         "docker>=6.0",
     ],
     extras_require={

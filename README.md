@@ -284,6 +284,22 @@ Connect using the provided PostgreSQL URI:
 psql "postgresql://tsdbadmin:password@127.0.0.1:5433/tsdb"
 ```
 
+## Environment configuration
+
+Copy the example configuration once:
+
+```bash
+cp .env.example .env
+tsdbenv list
+```
+
+Every `tsdbenv` command automatically loads `.env` from the current directory.
+The local file is ignored by Git, and an already-exported variable takes
+precedence over its `.env` value. Currently supported:
+
+- `TSDBENV_ENGINE=docker` selects Docker (the default).
+- `TSDBENV_ENGINE=podman` selects Podman.
+
 ## Extensions
 
 Containers include Tiger Cloud production extensions pre-installed and enabled:
