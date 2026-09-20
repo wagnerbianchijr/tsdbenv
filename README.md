@@ -309,7 +309,8 @@ Containers include Tiger Cloud production extensions pre-installed and enabled:
 - **postgres_fdw** — Foreign data wrapper for remote PostgreSQL connections
 - **pg_buffercache** — Buffer pool analysis and statistics
 - **pg_stat_statements** — Query performance tracking
-- **timescaledb_toolkit** — Advanced time-series analytics functions
+- **timescaledb_toolkit** — Advanced time-series analytics functions, installed
+  from the official TimescaleDB HA image and enabled in the `tsdb` database
 - **plpgsql** — PL/pgSQL procedural language
 
 List extensions in container:

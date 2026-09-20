@@ -20,3 +20,14 @@ def test_tsdbadmin_role_matches_tiger_cloud(script_path):
 
     assert ROLE_DEFINITION in script
     assert "LOGIN SUPERUSER" not in script
+
+
+def test_container_installs_and_enables_timescaledb_toolkit():
+    dockerfile = (PROJECT_ROOT / "src/tsdbenv/dockerfiles/Dockerfile").read_text()
+    init_script = (
+        PROJECT_ROOT / "src/tsdbenv/dockerfiles/init-tsdbadmin.sh"
+    ).read_text()
+
+    assert "FROM timescale/timescaledb-ha:pg${PG_VERSION}" in dockerfile
+    assert "CREATE EXTENSION IF NOT EXISTS timescaledb_toolkit CASCADE;" in init_script
+    assert "psql -v ON_ERROR_STOP=1 -d tsdb" in init_script

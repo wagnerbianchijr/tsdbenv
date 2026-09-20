@@ -4,12 +4,10 @@
 
 ARG PG_VERSION=14
 
-FROM timescale/timescaledb:latest-pg${PG_VERSION}-oss
+FROM timescale/timescaledb-ha:pg${PG_VERSION}
 
-# TimescaleDB extension is pre-configured in the base image
-# Built-in extensions available: pg_buffercache, pg_stat_statements, postgres_fdw
-# Note: pgvector and vectorscale require additional packages not in standard repos
-# timescaledb_toolkit is available in timescale images
+# The HA image includes TimescaleDB Toolkit and the broader extension set used by
+# Tiger Cloud. The lightweight Alpine OSS image does not ship Toolkit binaries.
 
 # Set environment variables for postgres user
 ENV POSTGRES_USER=postgres
@@ -24,5 +22,8 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
 # Copy initialization script to docker-entrypoint-initdb.d/
 # This script executes automatically when PostgreSQL starts for the first time
 # Use wrapper script to handle password variable substitution
+USER root
 COPY init-tsdbadmin.sh /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh
-RUN chmod 755 /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh
+RUN chown postgres:postgres /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh \
+    && chmod 755 /docker-entrypoint-initdb.d/01-init-tsdbadmin.sh
+USER postgres

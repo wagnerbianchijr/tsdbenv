@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- TimescaleDB Toolkit is now installed from the official TimescaleDB HA image
+  and enabled in the default `tsdb` database.
+
+### Changed
+- Extension initialization now fails immediately when a required extension
+  cannot be created instead of silently leaving a partially configured database.
+
 ## [1.1.0] - 2026-09-19
 
 ### Added

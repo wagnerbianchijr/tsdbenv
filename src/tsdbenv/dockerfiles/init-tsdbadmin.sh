@@ -9,7 +9,7 @@ set -e
 PASSWORD="${TSDBADMIN_PASSWORD:-}"
 
 # Execute init-tsdbadmin.sql with password variable passed via psql -v flag
-psql -v password="$PASSWORD" <<'EOF'
+psql -v ON_ERROR_STOP=1 -v password="$PASSWORD" <<'EOF'
 -- Match the managed Tiger Cloud administrator role attributes.
 CREATE ROLE tsdbadmin WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE REPLICATION PASSWORD :'password';
 -- Create default tsdb database owned by tsdbadmin
@@ -19,7 +19,7 @@ ALTER ROLE tsdbadmin SET search_path = public, pg_catalog;
 EOF
 
 # Connect to tsdb and create extensions
-psql -d tsdb -U postgres <<'EOF'
+psql -v ON_ERROR_STOP=1 -d tsdb -U postgres <<'EOF'
 -- Create TimescaleDB extension
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 -- Create postgres_fdw for remote connections
@@ -28,7 +28,7 @@ CREATE EXTENSION IF NOT EXISTS postgres_fdw;
 CREATE EXTENSION IF NOT EXISTS pg_buffercache;
 -- Create pg_stat_statements for query statistics
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
--- Try to create additional extensions if available
+-- Create Tiger Cloud-compatible analytics and vector extensions
 CREATE EXTENSION IF NOT EXISTS timescaledb_toolkit CASCADE;
 CREATE EXTENSION IF NOT EXISTS vector;
 EOF

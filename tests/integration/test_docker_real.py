@@ -362,14 +362,14 @@ class TestRealTsdbenvImage:
         except TimeoutError:
             pytest.fail("PostgreSQL failed to start within timeout")
 
-    def test_timescaledb_extension_available(self, built_image, cleanup_containers):
-        """Test that TimescaleDB extension is available in the container.
+    def test_timescaledb_extensions_available(self, built_image, cleanup_containers):
+        """Test that TimescaleDB and Toolkit are available in the container.
 
         This test:
         1. Creates container from tsdbenv image
         2. Connects as postgres user
         3. Verifies TimescaleDB extension is in shared_preload_libraries
-        4. Verifies TimescaleDB extension is loaded and functional
+        4. Verifies TimescaleDB and Toolkit are loaded in the tsdb database
         """
         client = DockerClient()
         container_name = f"tsdbenv-ext-{uuid.uuid4().hex[:8]}"
@@ -405,7 +405,7 @@ class TestRealTsdbenvImage:
                         port=assigned_port,
                         user="postgres",
                         password="postgres",
-                        dbname="postgres",
+                        dbname="tsdb",
                     ) as conn:
                         with conn.cursor() as cur:
                             # Check shared_preload_libraries
@@ -413,18 +413,22 @@ class TestRealTsdbenvImage:
                             preload = cur.fetchone()[0]
                             assert "timescaledb" in preload
 
-                            # Verify TimescaleDB version is available
+                            # Verify core TimescaleDB and Toolkit are installed.
                             cur.execute(
-                                "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"
+                                """
+                                SELECT extname, extversion
+                                FROM pg_extension
+                                WHERE extname IN ('timescaledb', 'timescaledb_toolkit')
+                                """
                             )
-                            result = cur.fetchone()
-                            assert (
-                                result is not None
-                            ), "TimescaleDB extension not loaded"
-                            version = result[0]
-                            assert version is not None
-                            # Version format is like "2.19.3"
-                            assert "." in version
+                            extensions = dict(cur.fetchall())
+                            assert set(extensions) == {
+                                "timescaledb",
+                                "timescaledb_toolkit",
+                            }
+                            assert all(
+                                "." in version for version in extensions.values()
+                            )
                     break
                 except psycopg.OperationalError as e:
                     if attempt < max_retries - 1:
