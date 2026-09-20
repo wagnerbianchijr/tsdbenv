@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="tsdbenv",
-    version="1.0.0",
+    version="1.1.0",
     author="Wagner Bianchi",
     author_email="wagnerbianchijr@gmail.com",
     description="PostgreSQL + TimescaleDB environment manager via Docker",

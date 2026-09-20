@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-09-19
+
+### Added
+- Automatic loading of `.env` from the current working directory.
+- `.env.example` with Docker as the default container engine.
+- Regression coverage for environment loading and `tsdbadmin` role attributes.
+
+### Changed
+- `tsdbadmin` now matches Tiger Cloud's key administrator attributes:
+  `NOSUPERUSER`, `CREATEROLE`, and `REPLICATION`.
+- Exported environment variables take precedence over values loaded from `.env`.
+
+### Fixed
+- Initialization scripts are installed with permissions that allow PostgreSQL's
+  entrypoint user to execute them.
+
+### Testing
+- 119 tests pass.
+- 7 Podman-only integration tests skip when Podman is unavailable.
+
+---
+
 ## [1.0.0] - 2026-08-20
 
 ### Added
