@@ -354,7 +354,7 @@ def new(
 
     try:
         dockerfile_dir = str(get_dockerfiles_dir())
-        image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v2"
+        image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v3"
         with spinner(
             f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image..."
         ):
@@ -377,7 +377,8 @@ def new(
             name=name,
             environment={
                 "POSTGRES_PASSWORD": "postgres",
-                "PGPASSWORD": tsdbadmin_password,
+                "POSTGRESQL_PASSWORD": "postgres",
+                "PGPASSWORD": "postgres",
             },
             ports={5432: port},
             tsdbadmin_password=tsdbadmin_password,

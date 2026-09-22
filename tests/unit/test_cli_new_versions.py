@@ -36,12 +36,18 @@ def test_new_uses_exact_postgres_and_timescaledb_releases():
 
     assert result.exit_code == 0, result.output
     kwargs = state.docker_client.prepare_image.call_args.kwargs
-    assert kwargs["tag"] == "tsdbenv:pg15.18-ts2.14.2-v2"
+    assert kwargs["tag"] == "tsdbenv:pg15.18-ts2.14.2-v3"
     assert kwargs["build_args"] == {"PG_VERSION": "15.18", "TS_VERSION": "2.14.2"}
     assert kwargs["pull"] is False
     assert "Preparing PostgreSQL 15.18 + TimescaleDB 2.14.2 image" in result.output
     assert "Creating container tsdb-" in result.output
     assert "[00:00]" in result.output
+    environment = state.docker_client.create_container.call_args.kwargs["environment"]
+    assert environment == {
+        "POSTGRES_PASSWORD": "postgres",
+        "POSTGRESQL_PASSWORD": "postgres",
+        "PGPASSWORD": "postgres",
+    }
 
 
 def test_new_checks_compatibility_by_postgres_major():

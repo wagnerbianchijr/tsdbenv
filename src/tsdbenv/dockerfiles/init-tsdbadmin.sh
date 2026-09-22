@@ -10,6 +10,8 @@ PASSWORD="${TSDBADMIN_PASSWORD:-}"
 
 # Execute init-tsdbadmin.sql with password variable passed via psql -v flag
 psql -v ON_ERROR_STOP=1 -v password="$PASSWORD" <<'EOF'
+-- Keep the standard PostgreSQL superuser available for on-premises testing.
+ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';
 -- Match the managed Tiger Cloud administrator role attributes.
 CREATE ROLE tsdbadmin WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE REPLICATION PASSWORD :'password';
 -- Create default tsdb database owned by tsdbadmin

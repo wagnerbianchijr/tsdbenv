@@ -19,7 +19,14 @@ def test_tsdbadmin_role_matches_tiger_cloud(script_path):
     script = script_path.read_text()
 
     assert ROLE_DEFINITION in script
-    assert "LOGIN SUPERUSER" not in script
+    assert "CREATE ROLE tsdbadmin WITH LOGIN SUPERUSER" not in script
+
+
+@pytest.mark.parametrize("script_path", INIT_SCRIPTS)
+def test_postgres_superuser_has_on_premises_test_credentials(script_path):
+    script = script_path.read_text()
+
+    assert "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';" in script
 
 
 def test_container_installs_and_enables_timescaledb_toolkit():
