@@ -36,6 +36,8 @@ class Spinner:
         self.current = 0
         self.running = False
         self.thread = None
+        self.started_at = 0.0
+        self.rendered_width = 0
 
     def __enter__(self):
         self.start()
@@ -45,6 +47,7 @@ class Spinner:
         self.stop()
 
     def start(self):
+        self.started_at = time.monotonic()
         self.running = True
         self.thread = threading.Thread(target=self._spin, daemon=True)
         self.thread.start()
@@ -54,13 +57,25 @@ class Spinner:
         if self.thread:
             self.thread.join(timeout=1)
         # Clear the spinner line
-        click.echo("\r" + " " * (len(self.message) + 2), nl=False)
+        click.echo("\r" + " " * self.rendered_width, nl=False)
         click.echo("\r", nl=False)
+
+    @staticmethod
+    def _format_elapsed(seconds: float) -> str:
+        elapsed = max(0, int(seconds))
+        minutes, seconds = divmod(elapsed, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes:02d}:{seconds:02d}"
 
     def _spin(self):
         while self.running:
             char = self.spinner_chars[self.current % len(self.spinner_chars)]
-            click.echo(f"\r{char} {self.message}", nl=False)
+            elapsed = self._format_elapsed(time.monotonic() - self.started_at)
+            line = f"{char} {self.message} [{elapsed}]"
+            self.rendered_width = max(self.rendered_width, len(line))
+            click.echo(f"\r{line}", nl=False)
             sys.stdout.flush()
             self.current += 1
             time.sleep(0.1)
@@ -340,25 +355,34 @@ def new(
     try:
         dockerfile_dir = str(get_dockerfiles_dir())
         image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v2"
-        cli_state.docker_client.prepare_image(
-            tag=image_tag,
-            dockerfile_dir=dockerfile_dir,
-            build_args={"PG_VERSION": postgres, "TS_VERSION": timescaledb},
-            rebuild=rebuild,
-            pull=False,
-        )
+        with spinner(
+            f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image..."
+        ):
+            log(f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image...")
+            cli_state.docker_client.prepare_image(
+                tag=image_tag,
+                dockerfile_dir=dockerfile_dir,
+                build_args={"PG_VERSION": postgres, "TS_VERSION": timescaledb},
+                rebuild=rebuild,
+                pull=False,
+            )
     except Exception as e:
         click.echo(f"ERROR Failed to prepare container image: {e}")
         raise click.Abort()
 
-    container_id = cli_state.docker_client.create_container(
-        image=image_tag,
-        name=name,
-        environment={"POSTGRES_PASSWORD": "postgres", "PGPASSWORD": tsdbadmin_password},
-        ports={5432: port},
-        tsdbadmin_password=tsdbadmin_password,
-        bind_ip=bind_ip,
-    )
+    with spinner(f"Creating container {name} and waiting for PostgreSQL..."):
+        log(f"Creating container {name} and waiting for PostgreSQL...")
+        container_id = cli_state.docker_client.create_container(
+            image=image_tag,
+            name=name,
+            environment={
+                "POSTGRES_PASSWORD": "postgres",
+                "PGPASSWORD": tsdbadmin_password,
+            },
+            ports={5432: port},
+            tsdbadmin_password=tsdbadmin_password,
+            bind_ip=bind_ip,
+        )
 
     container = Container(
         name=name,
