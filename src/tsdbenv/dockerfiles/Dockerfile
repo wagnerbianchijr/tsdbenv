@@ -10,24 +10,20 @@ FROM ${BASE_IMAGE}
 ARG PG_VERSION
 ARG TS_VERSION
 
-# The HA tag pins the requested PostgreSQL patch release. Build the selected
-# TimescaleDB release because upstream does not publish every PG patch × TSDB
-# release combination (for example, PG 15.18 with TSDB 2.14.2).
+# The HA image packages multiple TimescaleDB releases for its PostgreSQL major.
+# Select the requested release without compiling it again.
 USER root
 RUN set -eux; \
     pg_major="${PG_VERSION%%.*}"; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        build-essential cmake git libssl-dev "postgresql-server-dev-${pg_major}"; \
-    git clone --depth 1 --branch "${TS_VERSION}" \
-        https://github.com/timescale/timescaledb.git /tmp/timescaledb; \
-    cd /tmp/timescaledb; \
-    ./bootstrap -DCMAKE_BUILD_TYPE=Release -DREGRESS_CHECKS=OFF \
-        -DTAP_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-        -DPROJECT_INSTALL_METHOD=docker-ha; \
-    cmake --build build --parallel "$(nproc)"; \
-    cmake --install build; \
-    rm -rf /tmp/timescaledb /var/lib/apt/lists/*
+    extension_dir="/usr/share/postgresql/${pg_major}/extension"; \
+    library_dir="/usr/lib/postgresql/${pg_major}/lib"; \
+    test -f "${extension_dir}/timescaledb--${TS_VERSION}.sql"; \
+    test -f "${library_dir}/timescaledb-${TS_VERSION}.so"; \
+    test -f "${library_dir}/timescaledb-tsl-${TS_VERSION}.so"; \
+    sed -i \
+        -e "s/^default_version = .*/default_version = '${TS_VERSION}'/" \
+        -e "s|^module_pathname = .*|module_pathname = '\$libdir/timescaledb-${TS_VERSION}'|" \
+        "${extension_dir}/timescaledb.control"
 
 # The HA image includes TimescaleDB Toolkit and the broader extension set used by
 # Tiger Cloud. The lightweight Alpine OSS image does not ship Toolkit binaries.

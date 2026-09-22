@@ -156,17 +156,18 @@ class DockerClient:
         dockerfile_dir: str,
         build_args: Optional[Dict[str, str]] = None,
         rebuild: bool = False,
+        pull: bool = True,
     ) -> str:
         """Reuse, pull, or build an image in fastest-first order.
 
         Existing local images are reused unless ``rebuild`` is requested. On a
-        cache miss, a prebuilt registry image is pulled. If it is unavailable,
-        the image is built locally as a resilient fallback.
+        cache miss, a prebuilt registry image is pulled when ``pull`` is true.
+        If pulling is disabled or unavailable, the image is built locally.
         """
         if not rebuild and self.image_exists(tag):
             return self.client.images.get(tag).id
 
-        if not rebuild:
+        if not rebuild and pull:
             try:
                 return self.client.images.pull(tag).id
             except docker.errors.APIError:

@@ -250,6 +250,23 @@ def test_prepare_image_builds_when_pull_fails(mock_docker_client):
     build_image.assert_called_once()
 
 
+def test_prepare_image_can_skip_registry_pull(mock_docker_client):
+    """Test pair-specific local images build without a failed registry lookup."""
+    mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("missing")
+    client = DockerClient()
+
+    with patch.object(client, "build_image", return_value="built-123") as build_image:
+        result = client.prepare_image(
+            tag="tsdbenv:pg15.18-ts2.14.2-v2",
+            dockerfile_dir="/tmp/dockerfiles",
+            pull=False,
+        )
+
+    assert result == "built-123"
+    mock_docker_client.images.pull.assert_not_called()
+    build_image.assert_called_once()
+
+
 def test_prepare_image_rebuilds_when_requested(mock_docker_client):
     """Test --rebuild bypasses both local image reuse and registry pulls."""
     client = DockerClient()

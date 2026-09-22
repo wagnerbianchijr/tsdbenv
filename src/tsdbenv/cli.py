@@ -286,15 +286,23 @@ def new(
         timescaledb = click.prompt("TimescaleDB version", type=str)
 
     if not re.fullmatch(r"\d+(?:\.\d+)?", postgres):
-        raise click.BadParameter("use a major or major.patch version", param_hint="--postgres")
+        raise click.BadParameter(
+            "use a major or major.patch version", param_hint="--postgres"
+        )
     if not re.fullmatch(r"\d+\.\d+\.\d+", timescaledb):
-        raise click.BadParameter("use a major.minor.patch release", param_hint="--timescaledb")
+        raise click.BadParameter(
+            "use a major.minor.patch release", param_hint="--timescaledb"
+        )
 
     postgres_major = postgres.split(".", 1)[0]
 
-    if not force and not cli_state.version_manager.is_compatible(postgres_major, timescaledb):
+    if not force and not cli_state.version_manager.is_compatible(
+        postgres_major, timescaledb
+    ):
         compatible_versions = (
-            cli_state.version_manager.get_compatible_timescaledb_versions(postgres_major)
+            cli_state.version_manager.get_compatible_timescaledb_versions(
+                postgres_major
+            )
         )
         click.echo(
             f"ERROR TSDB {timescaledb} is not compatible with PostgreSQL {postgres}"
@@ -331,12 +339,13 @@ def new(
 
     try:
         dockerfile_dir = str(get_dockerfiles_dir())
-        image_tag = f"ghcr.io/wagnerbianchijr/tsdbenv:pg{postgres}-ts{timescaledb}"
+        image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v2"
         cli_state.docker_client.prepare_image(
             tag=image_tag,
             dockerfile_dir=dockerfile_dir,
             build_args={"PG_VERSION": postgres, "TS_VERSION": timescaledb},
             rebuild=rebuild,
+            pull=False,
         )
     except Exception as e:
         click.echo(f"ERROR Failed to prepare container image: {e}")
