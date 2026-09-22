@@ -1,12 +1,14 @@
 # Author: Wagner Bianchi <wagnerbianchijr@gmail.com>
 # Created: 2026-08-19
 
+import re
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import docker
 import docker.errors
+import requests
 
 from tsdbenv.engine_config import Engine, get_engine_from_cli_or_env, get_socket_path
 
@@ -170,11 +172,46 @@ class DockerClient:
             except docker.errors.APIError:
                 pass
 
+        build_args = dict(build_args or {})
+        if "PG_VERSION" in build_args and "TS_VERSION" in build_args:
+            build_args["BASE_IMAGE"] = self._timescale_base_image(
+                build_args["PG_VERSION"]
+            )
         return self.build_image(
             dockerfile_dir=dockerfile_dir,
             tag=tag,
             build_args=build_args,
         )
+
+    @staticmethod
+    def _timescale_base_image(postgres_version: str) -> str:
+        """Find an HA image containing the exact requested PostgreSQL patch."""
+        repository = "timescale/timescaledb-ha"
+        if "." not in postgres_version:
+            return f"{repository}:pg{postgres_version}"
+
+        prefix = f"pg{postgres_version}-ts"
+        url = f"https://hub.docker.com/v2/repositories/{repository}/tags/"
+        try:
+            response = requests.get(
+                url, params={"page_size": 100, "name": prefix}, timeout=10
+            )
+            response.raise_for_status()
+            names = [item["name"] for item in response.json().get("results", [])]
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            raise RuntimeError("Could not list TimescaleDB HA image tags") from exc
+
+        pattern = re.compile(rf"{re.escape(prefix)}(\d+)\.(\d+)\.(\d+)$")
+        candidates = []
+        for name in names:
+            match = pattern.fullmatch(name)
+            if match:
+                candidates.append((tuple(map(int, match.groups())), name))
+        if not candidates:
+            raise RuntimeError(
+                f"No TimescaleDB HA image contains PostgreSQL {postgres_version}"
+            )
+        return f"{repository}:{max(candidates)[1]}"
 
     def create_container(
         self,

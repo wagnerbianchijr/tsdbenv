@@ -28,6 +28,7 @@ def test_container_installs_and_enables_timescaledb_toolkit():
         PROJECT_ROOT / "src/tsdbenv/dockerfiles/init-tsdbadmin.sh"
     ).read_text()
 
-    assert "FROM timescale/timescaledb-ha:pg${PG_VERSION}" in dockerfile
+    assert "FROM ${BASE_IMAGE}" in dockerfile
+    assert 'git clone --depth 1 --branch "${TS_VERSION}"' in dockerfile
     assert "CREATE EXTENSION IF NOT EXISTS timescaledb_toolkit CASCADE;" in init_script
     assert "psql -v ON_ERROR_STOP=1 -d tsdb" in init_script

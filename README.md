@@ -133,9 +133,19 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 
 `tsdbenv` prepares images in fastest-first order:
 
-1. Reuse `ghcr.io/wagnerbianchijr/tsdbenv:pg<major>` when it exists locally.
+1. Reuse `ghcr.io/wagnerbianchijr/tsdbenv:pg<postgres>-ts<timescaledb>` when it exists locally.
 2. Pull the prebuilt image from GitHub Container Registry on a cache miss.
 3. Build locally if the registry image is unavailable.
+
+PostgreSQL accepts a major version (such as `15`) or an exact patch release
+(such as `15.18`). TimescaleDB accepts an exact release (such as `2.14.2`).
+Local builds compile that TimescaleDB release against the selected PostgreSQL
+image, so historical TimescaleDB releases can be paired with newer PostgreSQL
+patch releases when they are compatible:
+
+```bash
+tsdbenv new --postgres 15.18 --timescaledb 2.14.2 --bind-ip 127.0.0.1 --force
+```
 
 Use `--rebuild` after changing the Dockerfile or initialization scripts:
 
