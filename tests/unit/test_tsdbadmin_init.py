@@ -40,4 +40,12 @@ def test_container_installs_and_enables_timescaledb_toolkit():
     assert "timescaledb-${TS_VERSION}.so" in dockerfile
     assert "cmake --build" not in dockerfile
     assert "CREATE EXTENSION IF NOT EXISTS timescaledb_toolkit CASCADE;" in init_script
-    assert "psql -v ON_ERROR_STOP=1 -d tsdb" in init_script
+
+
+def test_container_installs_extensions_in_postgres_and_tsdb():
+    init_script = (
+        PROJECT_ROOT / "src/tsdbenv/dockerfiles/init-tsdbadmin.sh"
+    ).read_text()
+
+    assert "for database in postgres tsdb" in init_script
+    assert 'psql -v ON_ERROR_STOP=1 -d "$database" -U postgres' in init_script

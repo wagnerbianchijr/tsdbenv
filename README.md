@@ -42,7 +42,8 @@ Output:
 Container 'tsdb-abc12345' created successfully!
 
 Connect:
-  psql "postgresql://tsdbadmin:aBcD1234eFgH5678@127.0.0.1:5433"
+  psql "postgresql://tsdbadmin:aBcD1234eFgH5678@127.0.0.1:5433/tsdb"  -- tiger cloud environment
+  psql "postgresql://postgres:postgres@127.0.0.1:5433/tsdb"           -- on-premises environment
 ```
 
 Copy and paste the connection string directly.

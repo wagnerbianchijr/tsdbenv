@@ -354,7 +354,7 @@ def new(
 
     try:
         dockerfile_dir = str(get_dockerfiles_dir())
-        image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v3"
+        image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v4"
         with spinner(
             f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image..."
         ):
@@ -577,8 +577,8 @@ def connectstring(container_name):
         click.echo(f"Container '{container_name}' not found.")
         return
 
-    connection_string = f"postgresql://tsdbadmin:{container.tsdbadmin_password}@{container.bind_ip}:{container.port}/tsdb"
-    click.echo(f'psql "{connection_string}"')
+    for line in connection_lines(container):
+        click.echo(line)
     cli_state.state_tracker.mark_accessed(container_name)
 
 
@@ -670,15 +670,33 @@ def show_matrix():
         click.echo("[ERROR] No compatibility data available")
 
 
+def connection_lines(container: Container) -> list[str]:
+    """Return aligned cloud and on-premises psql commands."""
+    tiger_command = (
+        f'psql "postgresql://tsdbadmin:{container.tsdbadmin_password}'
+        f'@{container.bind_ip}:{container.port}/tsdb"'
+    )
+    on_prem_command = (
+        f'psql "postgresql://postgres:postgres@{container.bind_ip}'
+        f':{container.port}/tsdb"'
+    )
+    command_width = max(len(tiger_command), len(on_prem_command))
+    return [
+        f"{tiger_command.ljust(command_width)}  -- tiger cloud environment",
+        f"{on_prem_command.ljust(command_width)}  -- on-premises environment",
+    ]
+
+
 def display_connection_info(container: Container) -> None:
     """Display connection information to the user."""
-    connection_string = f"postgresql://tsdbadmin:{container.tsdbadmin_password}@{container.bind_ip}:{container.port}/tsdb"
+    tiger_line, on_prem_line = connection_lines(container)
     click.echo(
         f"""
 Container '{container.name}' created successfully!
 
 Connect:
-  psql "{connection_string}"
+  {tiger_line}
+  {on_prem_line}
 """
     )
 
