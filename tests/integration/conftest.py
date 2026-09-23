@@ -40,13 +40,11 @@ def mock_cli_state():
     """Mock CLI state with isolated Docker and state tracker."""
     import tsdbenv.cli
 
-    with patch.object(
-        tsdbenv.cli.cli_state, "docker_client"
-    ) as mock_docker, patch.object(
-        tsdbenv.cli.cli_state, "state_tracker"
-    ) as mock_tracker, patch.object(
-        tsdbenv.cli.cli_state, "version_manager"
-    ) as mock_vm:
+    with (
+        patch.object(tsdbenv.cli.cli_state, "docker_client") as mock_docker,
+        patch.object(tsdbenv.cli.cli_state, "state_tracker") as mock_tracker,
+        patch.object(tsdbenv.cli.cli_state, "version_manager") as mock_vm,
+    ):
         mock_docker.build_image = MagicMock(return_value="image-123")
         mock_docker.prepare_image = MagicMock(return_value="image-123")
         mock_docker.create_container = MagicMock(return_value="container-123")

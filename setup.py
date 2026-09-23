@@ -1,7 +1,7 @@
 # Author: Wagner Bianchi <wagnerbianchijr@gmail.com>
 # Created: 2026-08-19
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="tsdbenv",
@@ -12,7 +12,7 @@ setup(
     url="https://github.com/wagnerbianchijr/tsdbenv.git",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         "pydantic>=2.0",
         "click>=8.1",

@@ -46,12 +46,10 @@ def test_init_with_podman_engine(mock_docker_client):
     """DockerClient initializes with explicit podman engine."""
     import os
 
-    with patch(
-        "tsdbenv.docker_utils.docker.DockerClient"
-    ) as mock_docker_client_ctor, patch(
-        "tsdbenv.docker_utils.Path.exists", return_value=False
-    ), patch.dict(
-        os.environ, {"DOCKER_HOST": ""}, clear=False
+    with (
+        patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client_ctor,
+        patch("tsdbenv.docker_utils.Path.exists", return_value=False),
+        patch.dict(os.environ, {"DOCKER_HOST": ""}, clear=False),
     ):
         fake_client = MagicMock()
         fake_client.ping.return_value = True
@@ -447,8 +445,9 @@ def test_wait_for_postgres_timeout():
         fake_container.exec_run.return_value = MagicMock(exit_code=0, output=b"5\n")
         fake_client.containers.get.return_value = fake_container
 
-        with patch("tsdbenv.docker_utils.time.monotonic", side_effect=[0, 0, 2]), patch(
-            "tsdbenv.docker_utils.time.sleep"
+        with (
+            patch("tsdbenv.docker_utils.time.monotonic", side_effect=[0, 0, 2]),
+            patch("tsdbenv.docker_utils.time.sleep"),
         ):
             with pytest.raises(TimeoutError, match="required extensions not ready"):
                 client.wait_for_postgres("abc123", timeout=1)

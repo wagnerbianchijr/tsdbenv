@@ -40,9 +40,11 @@ def test_docker_client_explicit_docker_engine():
 
 def test_docker_client_explicit_podman_engine():
     """Test DockerClient(engine='podman') uses Podman socket or DOCKER_HOST fallback."""
-    with patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client, patch(
-        "tsdbenv.docker_utils.Path.exists", return_value=False
-    ), patch.dict(os.environ, {"DOCKER_HOST": ""}, clear=False):
+    with (
+        patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client,
+        patch("tsdbenv.docker_utils.Path.exists", return_value=False),
+        patch.dict(os.environ, {"DOCKER_HOST": ""}, clear=False),
+    ):
         fake_client = MagicMock()
         fake_client.ping.return_value = True
         mock_docker_client.return_value = fake_client
@@ -56,9 +58,11 @@ def test_docker_client_explicit_podman_engine():
 
 def test_docker_client_case_insensitive_engine():
     """Test DockerClient engine parameter is case-insensitive."""
-    with patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client, patch(
-        "tsdbenv.docker_utils.Path.exists", return_value=False
-    ), patch.dict(os.environ, {"DOCKER_HOST": ""}, clear=False):
+    with (
+        patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client,
+        patch("tsdbenv.docker_utils.Path.exists", return_value=False),
+        patch.dict(os.environ, {"DOCKER_HOST": ""}, clear=False),
+    ):
         fake_client = MagicMock()
         fake_client.ping.return_value = True
         mock_docker_client.return_value = fake_client
@@ -104,8 +108,9 @@ def test_docker_client_invalid_engine():
 
 def test_docker_client_engine_from_env_variable():
     """Test DockerClient respects TSDBENV_ENGINE environment variable."""
-    with patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client, patch(
-        "tsdbenv.docker_utils.Path.exists", return_value=False
+    with (
+        patch("tsdbenv.docker_utils.docker.DockerClient") as mock_docker_client,
+        patch("tsdbenv.docker_utils.Path.exists", return_value=False),
     ):
         fake_client = MagicMock()
         fake_client.ping.return_value = True
