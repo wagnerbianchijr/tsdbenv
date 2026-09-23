@@ -112,15 +112,15 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 ```
 
 **Options:**
-- `--postgres VERSION` — PostgreSQL version (e.g., 14, 15)
-- `--timescaledb VERSION` — TimescaleDB version (e.g., 2.8.0, 2.10.0)
+- `--postgres VERSION` — PostgreSQL major or exact patch version (e.g., 15, 15.18)
+- `--timescaledb VERSION` — Exact TimescaleDB release (e.g., 2.14.2)
 - `--bind-ip IP` — IP to bind container to (default: 127.0.0.1)
 - `--port PORT` — PostgreSQL port (auto-detected if not specified)
 - `--config PATH` — PostgreSQL config file (optional)
 - `--init PATH` — SQL file to execute after container creation
 - `--tablespaces NAMES` — Comma-separated tablespace names to create
 - `--force` — Skip version compatibility check
-- `--rebuild` — Rebuild the local image instead of reusing or pulling one
+- `--rebuild` — Rebuild the local wrapper image instead of reusing it
 - `--verbose` — Enable detailed logging with timestamps
 
 **Features:**
@@ -129,6 +129,8 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 - Validates PostgreSQL × TimescaleDB version compatibility
 - Secure password generation (alphanumeric only)
 - Creates a Tiger Cloud-compatible `tsdbadmin` role with the default `tsdb` database
+- Configures `postgres`/`postgres` for on-premises testing
+- Enables the complete extension set in both the `tsdb` and `postgres` databases
 
 ### Fast container creation
 
@@ -137,6 +139,11 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 1. Reuse the versioned `pg<postgres>-ts<timescaledb>` image when it exists locally.
 2. Pull the exact PostgreSQL HA base image on a cache miss.
 3. Build a small local wrapper that selects the packaged TimescaleDB release.
+
+The first container for a PostgreSQL patch release may take longer while its HA
+base image downloads. The CLI displays an animated elapsed-time counter during
+image preparation and PostgreSQL startup. Later containers reuse the local
+image for the same version pair.
 
 PostgreSQL accepts a major version (such as `15`) or an exact patch release
 (such as `15.18`). TimescaleDB accepts an exact release (such as `2.14.2`).
@@ -155,8 +162,8 @@ tsdbenv new --postgres 15 --timescaledb 2.11.0 --rebuild
 ```
 
 Compatibility data is cached for 24 hours. Container readiness is reported only
-after PostgreSQL has created the `tsdb` database and all required extensions,
-including `timescaledb_toolkit`.
+after PostgreSQL has created the `tsdb` database and all required extensions in
+both `tsdb` and `postgres`, including `timescaledb_toolkit`.
 
 ### list
 List all containers.
@@ -214,13 +221,18 @@ tsdbenv removeall --force
 ```
 
 ### connectstring
-Get psql command for a container.
+Get both psql commands for a container.
 
 ```bash
 tsdbenv connectstring tsdb-04d30960
 ```
 
-Outputs ready-to-use psql connection command with embedded password.
+Example output:
+
+```text
+psql "postgresql://tsdbadmin:aBcD1234eFgH5678@127.0.0.1:5433/tsdb"  -- tiger cloud environment
+psql "postgresql://postgres:postgres@127.0.0.1:5433/tsdb"           -- on-premises environment
+```
 
 ### versionrefresh
 Refresh TimescaleDB version compatibility matrix.
@@ -268,15 +280,17 @@ tsdbenv -n --postgres 16 \
 
 ## Logging and Verbosity
 
-By default, tsdbenv shows a clean output with animated spinners for long-running operations. Use `--verbose` for detailed operation logs:
+By default, tsdbenv shows animated spinners and elapsed time for long-running
+operations. Use `--verbose` for detailed timestamped logs:
 
 ```bash
 # Default: clean output with spinner animation
 tsdbenv new --postgres 16 --timescaledb 2.29.2 -i schema.sql
 
-⠙ Checking for latest TimescaleDB versions...
-⠴ Waiting for PostgreSQL to be fully ready...
-⠦ Executing init SQL file...
+⠙ Loading TimescaleDB compatibility data... [00:01]
+⠴ Preparing PostgreSQL 16 + TimescaleDB 2.29.2 image... [00:08]
+⠦ Creating container tsdb-2af14423 and waiting for PostgreSQL... [00:04]
+⠇ Executing init SQL file... [00:01]
 
 Container 'tsdb-2af14423' created successfully!
 ```
@@ -285,10 +299,11 @@ Container 'tsdb-2af14423' created successfully!
 # Verbose: detailed timestamped logs
 tsdbenv new --postgres 16 --timescaledb 2.29.2 -i schema.sql --verbose
 
-2026-08-21 01:31:18 Checking for latest TimescaleDB versions...
-2026-08-21 01:31:21 Waiting for PostgreSQL to be fully ready...
-2026-08-21 01:31:21 Executing init SQL file...
-2026-08-21 01:31:21 Init SQL executed successfully
+2026-09-23 10:31:18 Loading TimescaleDB compatibility data...
+2026-09-23 10:31:19 Preparing PostgreSQL 16 + TimescaleDB 2.29.2 image...
+2026-09-23 10:31:27 Creating container tsdb-2af14423 and waiting for PostgreSQL...
+2026-09-23 10:31:31 Executing init SQL file...
+2026-09-23 10:31:32 Init SQL executed successfully
 
 Container 'tsdb-2af14423' created successfully!
 ```
@@ -301,17 +316,21 @@ tsdbenv new --postgres 16 --timescaledb 2.29.2 --verbose  # Both syntaxes work
 
 ## Connection
 
-All containers include a `tsdbadmin` role with a secure generated password. It
-matches Tiger Cloud's key administrator attributes: `NOSUPERUSER`, `CREATEROLE`,
-and `REPLICATION`.
+All containers support two connection models:
 
-**Default database:** `tsdb`  
-**Default user:** `tsdbadmin`
+- `tsdbadmin` uses a secure generated password and matches Tiger Cloud's key
+  administrator attributes: `NOSUPERUSER`, `CREATEROLE`, and `REPLICATION`.
+- `postgres` is a superuser with password `postgres` for on-premises testing.
 
-Connect using the provided PostgreSQL URI:
+- **Default database:** `tsdb`
+- **Tiger Cloud user:** `tsdbadmin`
+- **On-premises user:** `postgres`
+
+Both connect to the `tsdb` database:
 
 ```bash
 psql "postgresql://tsdbadmin:password@127.0.0.1:5433/tsdb"
+psql "postgresql://postgres:postgres@127.0.0.1:5433/tsdb"
 ```
 
 ## Environment configuration
@@ -340,8 +359,11 @@ Containers include Tiger Cloud production extensions pre-installed and enabled:
 - **pg_buffercache** — Buffer pool analysis and statistics
 - **pg_stat_statements** — Query performance tracking
 - **timescaledb_toolkit** — Advanced time-series analytics functions, installed
-  from the official TimescaleDB HA image and enabled in the `tsdb` database
+  from the official TimescaleDB HA image
 - **plpgsql** — PL/pgSQL procedural language
+
+The complete extension set is enabled in both the `tsdb` and `postgres`
+databases so either connection model is ready for testing.
 
 List extensions in container:
 
