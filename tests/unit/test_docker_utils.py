@@ -139,6 +139,7 @@ def test_create_container_success():
         assert kwargs["name"] == "testdb"
         assert kwargs["detach"] is True
         assert kwargs["remove"] is False
+        assert kwargs["restart_policy"] == {"Name": "unless-stopped"}
 
 
 def test_create_container_port_conflict():
