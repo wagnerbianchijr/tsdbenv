@@ -10,6 +10,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
 import click
 from click.formatting import HelpFormatter
@@ -213,7 +214,7 @@ class CLIState:
         self.state_dir = ensure_state_dir()
         self.state_tracker = StateTracker(state_dir=self.state_dir)
         self.version_manager = VersionManager(cache_dir=self.state_dir)
-        self.docker_client: DockerClient | None = None
+        self.docker_client: Optional[DockerClient] = None
         try:
             self.docker_client = DockerClient(engine=engine.value)
         except RuntimeError:
@@ -672,7 +673,7 @@ def show_matrix():
         click.echo("[ERROR] No compatibility data available")
 
 
-def connection_lines(container: Container) -> list[str]:
+def connection_lines(container: Container) -> List[str]:
     """Return aligned cloud and on-premises psql commands."""
     tiger_command = (
         f'psql "postgresql://tsdbadmin:{container.tsdbadmin_password}'

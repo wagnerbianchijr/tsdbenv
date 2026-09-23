@@ -7,7 +7,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 import requests
 
@@ -76,7 +76,7 @@ class VersionManager:
             response.raise_for_status()
             data = response.json()
 
-            matrix: dict[str, list[str]] = {}
+            matrix: Dict[str, List[str]] = {}
             for tag in data.get("results", []):
                 name = tag.get("name", "")
                 # Parse tags like: 2.29.2-pg18, latest-pg16-oss, 2.28.0-pg17
