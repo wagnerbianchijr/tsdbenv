@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- New containers use the `unless-stopped` restart policy so running database
+  environments return after an operating system or container-engine restart.
+- The README now documents that the `tsdbenv list` registry persists in
+  `~/.tsdbenv/containers.json` across sessions.
+
 ## [1.2.0] - 2026-09-23
 
 ### Added

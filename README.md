@@ -128,6 +128,8 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 - Auto-detects first available port (5432, 5433, 5434, ...)
 - Validates PostgreSQL × TimescaleDB version compatibility
 - Secure password generation (alphanumeric only)
+- Persists the container registry in `~/.tsdbenv/containers.json`
+- Restarts running containers after an operating system or container-engine restart
 - Creates a Tiger Cloud-compatible `tsdbadmin` role with the default `tsdb` database
 - Configures `postgres`/`postgres` for on-premises testing
 - Enables the complete extension set in both the `tsdb` and `postgres` databases
@@ -167,6 +169,12 @@ both `tsdb` and `postgres`, including `timescaledb_toolkit`.
 
 ### list
 List all containers.
+
+Containers remain registered across terminal sessions, sign-outs, and operating
+system restarts. Docker and Podman keep the containers after they stop, and
+`tsdbenv` stores their connection metadata in `~/.tsdbenv/containers.json`.
+Containers that were running restart automatically with the container engine;
+containers explicitly stopped by the user remain stopped.
 
 ```bash
 tsdbenv list

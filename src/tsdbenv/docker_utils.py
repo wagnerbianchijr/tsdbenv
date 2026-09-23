@@ -263,6 +263,7 @@ class DockerClient:
                 volumes=volumes or {},
                 detach=True,
                 remove=False,  # Keep container even if stopped
+                restart_policy={"Name": "unless-stopped"},
                 hostname=name,
             )
             # Wait for PostgreSQL to be ready
