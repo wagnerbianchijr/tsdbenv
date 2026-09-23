@@ -49,7 +49,10 @@ class TestGetSocketPath:
         # or /var/folders/*/T/podman/podman-machine-default-api.sock (macOS Podman Machine)
         uid = os.getuid()
         expected_linux = f"/run/user/{uid}/podman/podman.sock"
-        is_macos_path = socket_path.startswith("/var/folders") and "podman-machine-default-api.sock" in socket_path
+        is_macos_path = (
+            socket_path.startswith("/var/folders")
+            and "podman-machine-default-api.sock" in socket_path
+        )
         is_linux_path = socket_path == expected_linux
         assert is_macos_path or is_linux_path
 
@@ -156,7 +159,10 @@ class TestEngineConfigFromEngine:
         config = EngineConfig.from_engine(Engine.PODMAN)
         assert config.engine == Engine.PODMAN
         # Socket path can be either Linux rootless or macOS Podman Machine
-        is_macos_path = config.socket_path.startswith("/var/folders") and "podman-machine-default-api.sock" in config.socket_path
+        is_macos_path = (
+            config.socket_path.startswith("/var/folders")
+            and "podman-machine-default-api.sock" in config.socket_path
+        )
         is_linux_path = config.socket_path == expected_path
         assert is_macos_path or is_linux_path
 
@@ -179,7 +185,10 @@ class TestEngineConfigFromCliOrEnv:
         config = EngineConfig.from_cli_or_env(cli_engine="podman")
         assert config.engine == Engine.PODMAN
         # Socket path can be either Linux rootless or macOS Podman Machine
-        is_macos_path = config.socket_path.startswith("/var/folders") and "podman-machine-default-api.sock" in config.socket_path
+        is_macos_path = (
+            config.socket_path.startswith("/var/folders")
+            and "podman-machine-default-api.sock" in config.socket_path
+        )
         is_linux_path = config.socket_path == expected_path
         assert is_macos_path or is_linux_path
 
@@ -198,7 +207,10 @@ class TestEngineConfigFromCliOrEnv:
         config = EngineConfig.from_cli_or_env()
         assert config.engine == Engine.PODMAN
         # Socket path can be either Linux rootless or macOS Podman Machine
-        is_macos_path = config.socket_path.startswith("/var/folders") and "podman-machine-default-api.sock" in config.socket_path
+        is_macos_path = (
+            config.socket_path.startswith("/var/folders")
+            and "podman-machine-default-api.sock" in config.socket_path
+        )
         is_linux_path = config.socket_path == expected_path
         assert is_macos_path or is_linux_path
 
@@ -217,7 +229,10 @@ class TestEngineConfigFromCliOrEnv:
         config = EngineConfig.from_cli_or_env(cli_engine="podman")
         assert config.engine == Engine.PODMAN
         # Socket path can be either Linux rootless or macOS Podman Machine
-        is_macos_path = config.socket_path.startswith("/var/folders") and "podman-machine-default-api.sock" in config.socket_path
+        is_macos_path = (
+            config.socket_path.startswith("/var/folders")
+            and "podman-machine-default-api.sock" in config.socket_path
+        )
         is_linux_path = config.socket_path == expected_path
         assert is_macos_path or is_linux_path
 

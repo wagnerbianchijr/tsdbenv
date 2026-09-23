@@ -47,7 +47,10 @@ def get_socket_path(engine: Engine) -> str:
 
         # Try macOS Podman Machine socket path (/var/folders/...)
         import glob
-        macos_machine_sockets = glob.glob("/var/folders/*/*/T/podman/podman-machine-default-api.sock")
+
+        macos_machine_sockets = glob.glob(
+            "/var/folders/*/*/T/podman/podman-machine-default-api.sock"
+        )
         if macos_machine_sockets:
             return macos_machine_sockets[0]
 

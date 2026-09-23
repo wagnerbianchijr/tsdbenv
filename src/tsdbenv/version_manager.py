@@ -1,6 +1,8 @@
 # Author: Wagner Bianchi <wagnerbianchijr@gmail.com>
 # Created: 2026-08-19
 
+from __future__ import annotations
+
 import json
 import re
 from datetime import datetime

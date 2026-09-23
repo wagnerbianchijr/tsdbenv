@@ -44,7 +44,9 @@ class Container(BaseModel):
     port: int = Field(default=5432, description="PostgreSQL port")
     bind_ip: str = Field(default="127.0.0.1", description="IP to bind container to")
     tsdbadmin_password: str = Field(..., description="tsdbadmin user password")
-    engine: str = Field(default="docker", description="Container engine (docker or podman)")
+    engine: str = Field(
+        default="docker", description="Container engine (docker or podman)"
+    )
 
 
 class VersionMatrix(BaseModel):

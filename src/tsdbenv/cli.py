@@ -1,6 +1,8 @@
 # Author: Wagner Bianchi <wagnerbianchijr@gmail.com>
 # Created: 2026-08-19
 
+from __future__ import annotations
+
 import hashlib
 import re
 import sys
@@ -11,7 +13,7 @@ from pathlib import Path
 
 import click
 from click.formatting import HelpFormatter
-from tabulate import tabulate
+from tabulate import tabulate  # type: ignore
 
 from tsdbenv import __version__
 from tsdbenv.config_handler import ConfigHandler

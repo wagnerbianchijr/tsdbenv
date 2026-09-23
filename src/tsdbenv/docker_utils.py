@@ -195,7 +195,7 @@ class DockerClient:
         url = f"https://hub.docker.com/v2/repositories/{repository}/tags/"
         try:
             response = requests.get(
-                url, params={"page_size": 100, "name": prefix}, timeout=10
+                url, params={"page_size": "100", "name": prefix}, timeout=10
             )
             response.raise_for_status()
             names = [item["name"] for item in response.json().get("results", [])]
