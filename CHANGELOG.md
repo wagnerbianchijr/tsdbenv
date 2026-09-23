@@ -4,21 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-23
+
 ### Added
-- TimescaleDB Toolkit is now installed from the official TimescaleDB HA image
-  and enabled in the default `tsdb` database.
-- Prebuilt PostgreSQL 14–18 images are published to GitHub Container Registry.
+- Exact PostgreSQL patch releases, such as `15.18`, can be paired with exact
+  TimescaleDB releases, such as `2.14.2`.
+- Animated elapsed-time counters cover image preparation and container startup.
+- Every container provides a Tiger Cloud-style `tsdbadmin` connection and an
+  on-premises `postgres`/`postgres` connection.
+- The full extension set is initialized in both the `tsdb` and `postgres`
+  databases.
 - `tsdbenv new --rebuild` explicitly refreshes a local image.
 
 ### Changed
+- Local wrapper images select the requested TimescaleDB release from the
+  official HA image instead of compiling TimescaleDB from source.
 - Extension initialization now fails immediately when a required extension
   cannot be created instead of silently leaving a partially configured database.
-- Container creation now reuses a local image, pulls a prebuilt image on a cache
-  miss, and builds locally only as a fallback.
+- `new` and `connectstring` display both supported connection environments.
 - Compatibility data uses its 24-hour cache instead of refreshing on every
   `new` command.
 - Readiness checks query the initialized database and required extensions rather
   than matching an early PostgreSQL log message.
+- The supported Python baseline is now 3.10, with CI coverage for Python 3.10,
+  3.11, and 3.12.
+
+### Fixed
+- Exact PostgreSQL patch versions no longer generate nonexistent upstream image
+  tags.
+- First-time container creation no longer rebuilds TimescaleDB from source.
+- GitHub Actions now runs portable tests with a coverage threshold matching the
+  current suite.
+
+### Removed
+- The obsolete GHCR image publishing workflow. Pair-specific wrapper images are
+  built and cached locally.
+
+### Testing
+- 131 portable tests pass in the GitHub Actions environment.
+- Current measured coverage is 69% with a 65% required threshold.
 
 ## [1.1.0] - 2026-09-19
 
