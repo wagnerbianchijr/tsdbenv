@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+import requests
 
 from tsdbenv.models import VersionMatrix
 from tsdbenv.version_manager import VersionManager
@@ -82,3 +83,76 @@ def test_version_manager_get_or_fetch_saves_cache_on_miss(
 
     assert matrix == sample_version_matrix
     assert (temp_state_dir / "version_matrix.json").exists()
+
+
+def test_fetch_from_docker_hub_follows_pagination(temp_state_dir, monkeypatch):
+    """Test fetch reads every tag page, not only the first one."""
+    pages = {
+        "https://registry.hub.docker.com/v2/repositories/timescale/timescaledb/tags/?page_size=100": {
+            "results": [{"name": "2.30.2-pg16"}],
+            "next": "https://registry.hub.docker.com/v2/repositories/timescale/timescaledb/tags/?page=2&page_size=100",
+        },
+        "https://registry.hub.docker.com/v2/repositories/timescale/timescaledb/tags/?page=2&page_size=100": {
+            "results": [{"name": "2.14.2-pg16"}],
+            "next": None,
+        },
+    }
+
+    class FakeResponse:
+        status_code = 200
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._payload
+
+    requested = []
+
+    def fake_get(url, timeout):
+        requested.append(url)
+        return FakeResponse(pages[url])
+
+    monkeypatch.setattr("tsdbenv.version_manager.requests.get", fake_get)
+
+    vm = VersionManager(cache_dir=temp_state_dir)
+    matrix = vm.fetch_from_docker_hub()
+
+    assert len(requested) == 2
+    assert matrix.is_compatible("16", "2.14.2") is True
+    assert matrix.is_compatible("16", "2.30.2") is True
+
+
+def test_fetch_from_docker_hub_keeps_pages_before_pagination_limit(
+    temp_state_dir, monkeypatch
+):
+    """Test anonymous 403 past the page limit keeps the tags already read."""
+    first = "https://registry.hub.docker.com/v2/repositories/timescale/timescaledb/tags/?page_size=100"
+    second = first + "&page=2"
+
+    class FakeResponse:
+        def __init__(self, status_code, payload=None):
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(str(self.status_code))
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, timeout):
+        if url == first:
+            return FakeResponse(200, {"results": [{"name": "2.30.2-pg16"}], "next": second})
+        return FakeResponse(403, {"message": "pagination offset too large"})
+
+    monkeypatch.setattr("tsdbenv.version_manager.requests.get", fake_get)
+
+    vm = VersionManager(cache_dir=temp_state_dir)
+    matrix = vm.fetch_from_docker_hub()
+
+    assert matrix.is_compatible("16", "2.30.2") is True

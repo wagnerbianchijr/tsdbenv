@@ -19,6 +19,7 @@ class VersionManager:
 
     CACHE_FILE = "version_matrix.json"
     CACHE_MAX_AGE_HOURS = 24
+    MAX_TAG_PAGES = 30  # ~3000 tags at 100 per page; the upstream repo has ~1160
     FALLBACK_MATRIX = {
         "12": ["2.5.0", "2.6.0", "2.7.0"],
         "13": ["2.6.0", "2.7.0", "2.8.0"],
@@ -71,13 +72,24 @@ class VersionManager:
     def fetch_from_docker_hub(self) -> VersionMatrix:
         """Fetch TimescaleDB × PostgreSQL compatibility from Docker Hub."""
         try:
-            url = "https://registry.hub.docker.com/v2/repositories/timescale/timescaledb/tags/?page_size=300"
-            response = requests.get(url, timeout=5)
-            response.raise_for_status()
-            data = response.json()
+            # Docker Hub caps page_size at 100, so follow `next` to read every tag.
+            # Reading only the first page drops older TimescaleDB releases (e.g. 2.14.2-pg16).
+            url = "https://registry.hub.docker.com/v2/repositories/timescale/timescaledb/tags/?page_size=100"
+            results: List[dict] = []
+            for page in range(self.MAX_TAG_PAGES):
+                response = requests.get(url, timeout=5)
+                if page > 0 and response.status_code == 403:
+                    # Anonymous requests cannot page past ~1000 tags; keep what we have.
+                    break
+                response.raise_for_status()
+                data = response.json()
+                results.extend(data.get("results", []))
+                url = data.get("next")
+                if not url:
+                    break
 
             matrix: Dict[str, List[str]] = {}
-            for tag in data.get("results", []):
+            for tag in results:
                 name = tag.get("name", "")
                 # Parse tags like: 2.29.2-pg18, latest-pg16-oss, 2.28.0-pg17
                 match = re.search(r"(\d+\.\d+\.\d+)-pg(\d+)", name)
