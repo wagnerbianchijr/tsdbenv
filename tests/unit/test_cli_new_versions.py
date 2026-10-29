@@ -103,6 +103,49 @@ def test_new_uses_exact_postgres_and_timescaledb_releases():
     }
 
 
+def test_new_waits_for_extensions_before_executing_init_file(tmp_path):
+    init_file = tmp_path / "init.sql"
+    init_file.write_text(
+        "SELECT create_hypertable('metrics', 'time');\n", encoding="utf-8"
+    )
+    state = MagicMock()
+    state.engine.value = "docker"
+    state.verbose = False
+    state.version_manager.is_compatible.return_value = True
+    state.docker_client.create_container.return_value = "container-123"
+    calls = []
+    state.docker_client.wait_for_postgres.side_effect = lambda *args, **kwargs: calls.append(
+        "wait_for_extensions"
+    )
+    state.docker_client.execute_sql_file.side_effect = lambda *args, **kwargs: calls.append(
+        "execute_init"
+    )
+
+    with patch.object(cli, "cli_state", state):
+        result = CliRunner().invoke(
+            cli.new,
+            [
+                "--postgres",
+                "15.18",
+                "--timescaledb",
+                "2.14.2",
+                "--bind-ip",
+                "127.0.0.1",
+                "--port",
+                "55432",
+                "--force",
+                "--init",
+                str(init_file),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert calls == ["wait_for_extensions", "execute_init"]
+    state.docker_client.execute_sql_file.assert_called_once_with(
+        "container-123", str(init_file)
+    )
+
+
 def test_new_checks_compatibility_by_postgres_major():
     state = MagicMock()
     state.engine.value = "docker"

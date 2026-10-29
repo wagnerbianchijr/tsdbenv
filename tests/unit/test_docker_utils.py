@@ -432,6 +432,10 @@ def test_wait_for_postgres_ready_immediately():
 
         assert client.wait_for_postgres("abc123", timeout=5) is True
         fake_container.exec_run.assert_called_once()
+        readiness_query = fake_container.exec_run.call_args.args[0][-1]
+        for extension in client.REQUIRED_EXTENSIONS:
+            assert f"'{extension}'" in readiness_query
+        assert "WHERE extname IN" in readiness_query
 
 
 def test_wait_for_postgres_timeout():
