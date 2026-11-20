@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tsdbenv.models import Container
+from tsdbenv.models import Container, VersionMatrix
 from tsdbenv.state_tracker import StateTracker
 from tsdbenv.version_manager import VersionManager
 
@@ -55,6 +55,10 @@ def test_full_lifecycle(temp_state_dir):
 def test_version_compatibility_flow(temp_state_dir):
     """Test version compatibility validation flow."""
     vm = VersionManager(cache_dir=temp_state_dir)
+    vm.matrix = VersionMatrix(
+        postgres_versions=VersionManager.FALLBACK_MATRIX,
+        last_fetched=datetime.now(),
+    )
 
     assert vm.is_compatible("14", "2.8.0") is True
     assert vm.is_compatible("15", "2.9.0") is True

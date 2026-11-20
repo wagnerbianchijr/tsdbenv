@@ -30,14 +30,11 @@ def test_connection_info_shows_cloud_and_on_premises_commands(capsys):
 
     output = capsys.readouterr().out
     assert "Container 'tsdb-c4518ff8' created successfully!" in output
-    assert (
-        'psql "postgresql://tsdbadmin:cL6SLghbZVstIgdG@127.0.0.1:5433/tsdb"'
-        "  -- tiger cloud environment"
-    ) in output
-    assert (
-        'psql "postgresql://postgres:postgres@127.0.0.1:5433/tsdb"'
-        "           -- on-premises environment"
-    ) in output
+    assert 'psql "postgresql://tsdbadmin@127.0.0.1:5433/tsdb"' in output
+    assert "-- tiger cloud environment" in output
+    assert "cL6SLghbZVstIgdG" not in output
+    assert 'psql "postgresql://postgres:postgres@127.0.0.1:5433/tsdb"' in output
+    assert "-- on-premises environment" in output
 
 
 def test_connectstring_shows_cloud_and_on_premises_commands():
@@ -94,7 +91,8 @@ def test_new_uses_exact_postgres_and_timescaledb_releases():
     assert kwargs["pull"] is False
     assert "Preparing PostgreSQL 15.18 + TimescaleDB 2.14.2 image" in result.output
     assert "Creating container tsdb-" in result.output
-    assert "[00:00]" in result.output
+    assert "Done" in result.output
+    assert "\r" not in result.output
     environment = state.docker_client.create_container.call_args.kwargs["environment"]
     assert environment == {
         "POSTGRES_PASSWORD": "postgres",

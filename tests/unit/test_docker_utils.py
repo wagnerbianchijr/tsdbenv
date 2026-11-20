@@ -133,7 +133,7 @@ def test_create_container_success():
             )
 
         assert container_id == "abc123"
-        mock_wait.assert_called_once_with("abc123")
+        mock_wait.assert_called_once_with("abc123", require_extensions=True)
         fake_client.containers.run.assert_called_once()
         _, kwargs = fake_client.containers.run.call_args
         assert kwargs["name"] == "testdb"

@@ -223,6 +223,8 @@ class DockerClient:
         volumes: Optional[Dict] = None,
         tsdbadmin_password: Optional[str] = None,
         bind_ip: Optional[str] = None,
+        command: Optional[List[str]] = None,
+        require_extensions: bool = True,
     ) -> str:
         """Create and start a PostgreSQL + TimescaleDB container.
 
@@ -265,9 +267,10 @@ class DockerClient:
                 remove=False,  # Keep container even if stopped
                 restart_policy={"Name": "unless-stopped"},
                 hostname=name,
+                command=command,
             )
             # Wait for PostgreSQL to be ready
-            self.wait_for_postgres(container.id)
+            self.wait_for_postgres(container.id, require_extensions=require_extensions)
             return container.id
         except docker.errors.APIError as e:
             if "Address already in use" in str(e):
@@ -320,7 +323,9 @@ class DockerClient:
             )
         return result
 
-    def wait_for_postgres(self, container_id: str, timeout: int = 30) -> bool:
+    def wait_for_postgres(
+        self, container_id: str, timeout: int = 30, require_extensions: bool = True
+    ) -> bool:
         """Wait until PostgreSQL and all required extensions are ready.
 
         Args:
@@ -340,8 +345,12 @@ class DockerClient:
         readiness_query = (
             "SELECT count(*) FROM pg_extension "
             f"WHERE extname IN ({extension_names});"
+            if require_extensions
+            else "SELECT 1;"
         )
-        expected_count = str(len(self.REQUIRED_EXTENSIONS))
+        expected_count = (
+            str(len(self.REQUIRED_EXTENSIONS)) if require_extensions else "1"
+        )
         start = time.monotonic()
         while time.monotonic() - start < timeout:
             try:
@@ -358,7 +367,7 @@ class DockerClient:
                         "-U",
                         "postgres",
                         "-d",
-                        "tsdb",
+                        "tsdb" if require_extensions else "postgres",
                         "-tAc",
                         readiness_query,
                     ],
