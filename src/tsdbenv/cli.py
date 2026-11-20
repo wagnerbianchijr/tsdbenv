@@ -41,7 +41,7 @@ class Spinner:
         self.thread = None
         self.started_at = 0.0
         self.rendered_width = 0
-        self.interactive = click.get_text_stream("stdout").isatty()
+        self.interactive = sys.stdout.isatty()
 
     def __enter__(self):
         self.start()
@@ -724,14 +724,14 @@ def connection_lines(container: Container) -> List[str]:
 
 def display_connection_info(container: Container) -> None:
     """Display connection information to the user."""
-    tiger_line, on_prem_line = connection_lines(container)
+    lines = connection_lines(container)
+    connection_text = "\n".join(f"  {line}" for line in lines)
     click.echo(
         f"""
 Container '{container.name}' created successfully!
 
 Connect:
-  {tiger_line}
-  {on_prem_line}
+{connection_text}
 """
     )
     if container.timescaledb_version:
