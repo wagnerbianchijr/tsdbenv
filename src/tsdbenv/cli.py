@@ -324,8 +324,10 @@ def new(
 
     postgres_major = postgres.split(".", 1)[0]
 
-    if timescaledb and not force and not cli_state.version_manager.is_compatible(
-        postgres_major, timescaledb
+    if (
+        timescaledb
+        and not force
+        and not cli_state.version_manager.is_compatible(postgres_major, timescaledb)
     ):
         compatible_versions = (
             cli_state.version_manager.get_compatible_timescaledb_versions(
@@ -708,8 +710,7 @@ def connection_lines(container: Container) -> List[str]:
             "  -- PostgreSQL"
         ]
     tiger_command = (
-        f'psql "postgresql://tsdbadmin@{container.bind_ip}'
-        f':{container.port}/tsdb"'
+        f'psql "postgresql://tsdbadmin@{container.bind_ip}' f':{container.port}/tsdb"'
     )
     on_prem_command = (
         f'psql "postgresql://postgres:postgres@{container.bind_ip}'

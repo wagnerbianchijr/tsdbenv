@@ -270,9 +270,7 @@ class DockerClient:
                 command=command,
             )
             # Wait for PostgreSQL to be ready
-            self.wait_for_postgres(
-                container.id, require_extensions=require_extensions
-            )
+            self.wait_for_postgres(container.id, require_extensions=require_extensions)
             return container.id
         except docker.errors.APIError as e:
             if "Address already in use" in str(e):

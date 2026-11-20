@@ -147,7 +147,9 @@ def test_fetch_from_docker_hub_keeps_pages_before_pagination_limit(
 
     def fake_get(url, timeout):
         if url == first:
-            return FakeResponse(200, {"results": [{"name": "2.30.2-pg16"}], "next": second})
+            return FakeResponse(
+                200, {"results": [{"name": "2.30.2-pg16"}], "next": second}
+            )
         return FakeResponse(403, {"message": "pagination offset too large"})
 
     monkeypatch.setattr("tsdbenv.version_manager.requests.get", fake_get)

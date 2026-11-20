@@ -23,7 +23,16 @@ def test_postgres_only_container_skips_timescale_setup(repeat):
     with patch.object(cli, "cli_state", state):
         result = CliRunner().invoke(
             cli.new,
-            ["--postgres", "16", "--name", "pg-only", "--bind-ip", "127.0.0.1", "--port", "55432"],
+            [
+                "--postgres",
+                "16",
+                "--name",
+                "pg-only",
+                "--bind-ip",
+                "127.0.0.1",
+                "--port",
+                "55432",
+            ],
         )
 
     assert result.exit_code == 0, result.output
@@ -45,8 +54,17 @@ def test_custom_name_is_passed_to_container_creation(repeat):
         result = CliRunner().invoke(
             cli.new,
             [
-                "--postgres", "16", "--timescaledb", "2.22.1", "--force",
-                "--name", "named-db", "--bind-ip", "127.0.0.1", "--port", "55432",
+                "--postgres",
+                "16",
+                "--timescaledb",
+                "2.22.1",
+                "--force",
+                "--name",
+                "named-db",
+                "--bind-ip",
+                "127.0.0.1",
+                "--port",
+                "55432",
             ],
         )
 
@@ -61,13 +79,24 @@ def test_non_tty_progress_is_plain_and_bounded(repeat):
     with patch.object(cli, "cli_state", state):
         result = CliRunner().invoke(
             cli.new,
-            ["--postgres", "16", "--timescaledb", "2.22.1", "--force", "--port", "55432"],
+            [
+                "--postgres",
+                "16",
+                "--timescaledb",
+                "2.22.1",
+                "--force",
+                "--port",
+                "55432",
+            ],
         )
 
     assert result.exit_code == 0, result.output
     assert "\r" not in result.output
     assert result.output.count("Loading TimescaleDB compatibility data...") == 1
-    assert result.output.count("Preparing PostgreSQL 16 + TimescaleDB 2.22.1 image...") == 1
+    assert (
+        result.output.count("Preparing PostgreSQL 16 + TimescaleDB 2.22.1 image...")
+        == 1
+    )
     assert result.output.count("Creating container tsdb-") == 1
     assert result.output.count("Done") == 3
 
@@ -115,15 +144,27 @@ def test_config_values_are_passed_as_postgres_startup_options(repeat, tmp_path):
         result = CliRunner().invoke(
             cli.new,
             [
-                "--postgres", "16", "--timescaledb", "2.22.1", "--force",
-                "--config", str(config_file), "--bind-ip", "127.0.0.1", "--port", "55432",
+                "--postgres",
+                "16",
+                "--timescaledb",
+                "2.22.1",
+                "--force",
+                "--config",
+                str(config_file),
+                "--bind-ip",
+                "127.0.0.1",
+                "--port",
+                "55432",
             ],
         )
 
     assert result.exit_code == 0, result.output
     assert state.docker_client.create_container.call_args.kwargs["command"] == [
         "postgres",
-        "-c", "work_mem=77MB",
-        "-c", "track_io_timing=on",
-        "-c", "shared_preload_libraries=timescaledb,pg_stat_statements",
+        "-c",
+        "work_mem=77MB",
+        "-c",
+        "track_io_timing=on",
+        "-c",
+        "shared_preload_libraries=timescaledb,pg_stat_statements",
     ]
