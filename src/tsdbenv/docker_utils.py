@@ -304,6 +304,20 @@ class DockerClient:
         container = self.client.containers.get(container_id)
         return container.logs(stdout=True, stderr=True).decode("utf-8")
 
+    @staticmethod
+    def _container_log_tail(container, line_count: int = 20) -> str:
+        """Return recent container log lines for startup failure diagnostics."""
+        try:
+            logs = container.logs(stdout=True, stderr=True)
+            if isinstance(logs, bytes):
+                logs = logs.decode("utf-8", errors="replace")
+            lines = str(logs).splitlines()[-line_count:]
+        except Exception as error:
+            return f"\nCould not read container logs: {error}"
+        if not lines:
+            return ""
+        return "\nLast container log lines:\n" + "\n".join(lines)
+
     def list_containers(self) -> List[Dict]:
         """List all containers (running + stopped).
 
@@ -355,10 +369,12 @@ class DockerClient:
         while time.monotonic() - start < timeout:
             try:
                 container.reload()
-                if container.status in ("exited", "dead"):
-                    logs = container.logs(stdout=True, stderr=True).decode("utf-8")
+                if container.status in ("exited", "dead", "restarting"):
+                    lifecycle_state = container.status
                     raise RuntimeError(
-                        f"Container exited before PostgreSQL was ready:\n{logs}"
+                        "Container stopped before PostgreSQL was ready "
+                        f"(status: {lifecycle_state}):"
+                        f"{self._container_log_tail(container)}"
                     )
 
                 result = container.exec_run(
@@ -381,8 +397,12 @@ class DockerClient:
             except Exception:
                 pass
             time.sleep(1)
+        readiness_target = (
+            "PostgreSQL and required extensions" if require_extensions else "PostgreSQL"
+        )
         raise TimeoutError(
-            f"PostgreSQL and required extensions not ready after {timeout}s"
+            f"{readiness_target} not ready after {timeout}s"
+            f"{self._container_log_tail(container)}"
         )
 
     def create_tablespaces(

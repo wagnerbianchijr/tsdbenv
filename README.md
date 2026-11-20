@@ -131,6 +131,10 @@ tsdbenv new --postgres 14 --timescaledb 2.10.0 --bind-ip 127.0.0.1
 - `--rebuild` — Rebuild the local wrapper image instead of reusing it
 - `--verbose` — Enable detailed logging with timestamps
 
+PostgreSQL config lines support inline `#` comments outside quoted values. If
+PostgreSQL fails during startup, tsdbenv includes recent container log lines in
+the error output.
+
 **Features:**
 - Auto-generates unique container names (`tsdb-{timestamp_hash}`)
 - Auto-detects first available port (5432, 5433, 5434, ...)

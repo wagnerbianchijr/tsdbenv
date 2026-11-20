@@ -444,14 +444,18 @@ def test_wait_for_postgres_timeout():
         client = DockerClient()
         fake_container = MagicMock(status="running")
         fake_container.exec_run.return_value = MagicMock(exit_code=0, output=b"5\n")
+        fake_container.logs.return_value = b"recent startup error detail"
         fake_client.containers.get.return_value = fake_container
 
         with (
             patch("tsdbenv.docker_utils.time.monotonic", side_effect=[0, 0, 2]),
             patch("tsdbenv.docker_utils.time.sleep"),
         ):
-            with pytest.raises(TimeoutError, match="required extensions not ready"):
+            with pytest.raises(
+                TimeoutError, match="required extensions not ready"
+            ) as error:
                 client.wait_for_postgres("abc123", timeout=1)
+        assert "recent startup error detail" in str(error.value)
 
 
 def test_wait_for_postgres_fails_when_container_exits(mock_docker_client):
@@ -463,3 +467,16 @@ def test_wait_for_postgres_fails_when_container_exits(mock_docker_client):
 
     with pytest.raises(RuntimeError, match="initialization failed"):
         client.wait_for_postgres("abc123", timeout=5)
+
+
+def test_wait_for_postgres_restart_surfaces_recent_logs(mock_docker_client):
+    client = DockerClient()
+    fake_container = MagicMock(status="restarting")
+    fake_container.logs.return_value = (
+        b"starting PostgreSQL\n"
+        b'FATAL: invalid value for parameter "work_mem": "77MB # comment"\n'
+    )
+    mock_docker_client.containers.get.return_value = fake_container
+
+    with pytest.raises(RuntimeError, match="FATAL: invalid value for parameter"):
+        client.wait_for_postgres("abc123", timeout=1)

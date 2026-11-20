@@ -36,6 +36,23 @@ def test_parse_simple_kv_with_comments(temp_state_dir):
     assert len(config.raw_settings) == 2
 
 
+@pytest.mark.parametrize("parser_name", ["parse_simple_kv", "parse_postgresql_conf"])
+def test_config_parsers_strip_inline_comments_but_keep_quoted_hashes(
+    temp_state_dir, parser_name
+):
+    config_file = temp_state_dir / "inline-comments.conf"
+    config_file.write_text(
+        "work_mem = 77MB  # test comment\n"
+        "log_line_prefix = '%m #literal' # trailing comment\n",
+        encoding="utf-8",
+    )
+
+    config = getattr(ConfigHandler, parser_name)(config_file)
+
+    assert config.raw_settings["work_mem"] == "77MB"
+    assert config.raw_settings["log_line_prefix"] == "'%m #literal'"
+
+
 def test_parse_postgresql_conf(temp_state_dir):
     """Test parsing full postgresql.conf format."""
     config_file = temp_state_dir / "postgresql.conf"
@@ -67,6 +84,15 @@ def test_parse_file_auto_detect_simple_kv(temp_state_dir):
 
     assert config.is_valid is True
     assert config.raw_settings["shared_buffers"] == "256MB"
+
+
+def test_parse_file_strips_inline_comments(temp_state_dir):
+    config_file = temp_state_dir / "config-with-inline-comment.conf"
+    config_file.write_text("work_mem = 77MB # test comment\n", encoding="utf-8")
+
+    config = ConfigHandler.parse_file(config_file)
+
+    assert config.raw_settings["work_mem"] == "77MB"
 
 
 def test_parse_file_not_found():
