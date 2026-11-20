@@ -225,6 +225,7 @@ class DockerClient:
         bind_ip: Optional[str] = None,
         command: Optional[List[str]] = None,
         require_extensions: bool = True,
+        shm_size: Optional[str] = None,
     ) -> str:
         """Create and start a PostgreSQL + TimescaleDB container.
 
@@ -257,6 +258,10 @@ class DockerClient:
                 for internal_port, external_port in ports.items():
                     docker_ports[f"{internal_port}/tcp"] = (bind_ip, external_port)
 
+            container_options = {}
+            if shm_size is not None:
+                container_options["shm_size"] = shm_size
+
             container = self.client.containers.run(
                 image,
                 name=name,
@@ -268,6 +273,7 @@ class DockerClient:
                 restart_policy={"Name": "unless-stopped"},
                 hostname=name,
                 command=command,
+                **container_options,
             )
             # Wait for PostgreSQL to be ready
             self.wait_for_postgres(container.id, require_extensions=require_extensions)

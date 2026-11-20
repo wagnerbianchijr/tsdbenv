@@ -77,6 +77,8 @@ def test_new_accepts_and_applies_every_option(
         "2.22.1",
         "--port",
         "55432",
+        "--shm-size",
+        "1g",
         "--config",
         str(config_file),
         "--name",
@@ -107,6 +109,7 @@ def test_new_accepts_and_applies_every_option(
     assert create_kwargs["image"] == "tsdbenv:pg16-ts2.22.1-v4"
     assert create_kwargs["name"] == "flags-db"
     assert create_kwargs["ports"] == {5432: 55432}
+    assert create_kwargs["shm_size"] == "1g"
     assert create_kwargs["bind_ip"] == "127.0.0.1"
     assert create_kwargs["command"] == ["postgres", "-c", "work_mem=77MB"]
     state.docker_client.wait_for_postgres.assert_called_once_with(

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `tsdbenv new --shm-size SIZE` to configure the container's shared memory.
+
 ### Fixed
 
 - PostgreSQL config parsing now strips inline comments outside quoted values.
