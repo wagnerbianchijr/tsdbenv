@@ -2,14 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.3.0] - 2026-11-20
+
+### Added
+
+- PostgreSQL-only environments with `tsdbenv new --postgres VERSION`.
+- `--name` to choose a container name.
 
 ### Changed
 
 - New containers use the `unless-stopped` restart policy so running database
   environments return after an operating system or container-engine restart.
-- The README now documents that the `tsdbenv list` registry persists in
+- The README documents that the `tsdbenv list` registry persists in
   `~/.tsdbenv/containers.json` across sessions.
+- `--config` settings are applied when PostgreSQL starts.
+- Generated `tsdbadmin` passwords are no longer printed in connection strings.
+- Progress output uses one line per phase when stdout is not a terminal.
+- PostgreSQL-only containers use the official PostgreSQL image and skip
+  TimescaleDB extension readiness checks.
+
+### Fixed
+
+- Addressed reported issues #4, #5, #7, #8, and #9.
 
 ## [1.2.0] - 2026-09-23
 

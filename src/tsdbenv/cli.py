@@ -41,6 +41,7 @@ class Spinner:
         self.thread = None
         self.started_at = 0.0
         self.rendered_width = 0
+        self.interactive = click.get_text_stream("stdout").isatty()
 
     def __enter__(self):
         self.start()
@@ -51,11 +52,17 @@ class Spinner:
 
     def start(self):
         self.started_at = time.monotonic()
+        if not self.interactive:
+            click.echo(self.message)
+            return
         self.running = True
         self.thread = threading.Thread(target=self._spin, daemon=True)
         self.thread.start()
 
     def stop(self):
+        if not self.interactive:
+            click.echo("Done")
+            return
         self.running = False
         if self.thread:
             self.thread.join(timeout=1)
@@ -266,9 +273,13 @@ def main(ctx, version, engine, verbose):
 
 @main.command()
 @click.option("--postgres", help="PostgreSQL version (e.g., 15 or 15.18)")
-@click.option("--timescaledb", help="TimescaleDB version (e.g., 2.8.0)")
+@click.option(
+    "--timescaledb",
+    help="TimescaleDB version (e.g., 2.8.0); omit for PostgreSQL only",
+)
 @click.option("--port", type=int, default=None, help="PostgreSQL port")
 @click.option("--config", type=click.Path(exists=True), help="PostgreSQL config file")
+@click.option("--name", "container_name", help="Container name (default: generated)")
 @click.option("--bind-ip", help="IP to bind to (default: 127.0.0.1)")
 @click.option("-i", "--init", type=click.Path(exists=True), help="SQL file to execute")
 @click.option("-t", "--tablespaces", help="Comma-separated tablespace names")
@@ -284,6 +295,7 @@ def new(
     timescaledb,
     port,
     config,
+    container_name,
     bind_ip,
     init,
     tablespaces,
@@ -294,27 +306,25 @@ def new(
     """Create PostgreSQL + TimescaleDB container"""
     if verbose:
         cli_state.verbose = True
-    with spinner("Loading TimescaleDB compatibility data..."):
-        log("Loading TimescaleDB compatibility data...")
-        cli_state.version_manager.get_or_fetch()
+    if timescaledb:
+        with spinner("Loading TimescaleDB compatibility data..."):
+            log("Loading TimescaleDB compatibility data...")
+            cli_state.version_manager.get_or_fetch()
 
     if not postgres:
         postgres = click.prompt("PostgreSQL version", type=str)
-    if not timescaledb:
-        timescaledb = click.prompt("TimescaleDB version", type=str)
-
     if not re.fullmatch(r"\d+(?:\.\d+)?", postgres):
         raise click.BadParameter(
             "use a major or major.patch version", param_hint="--postgres"
         )
-    if not re.fullmatch(r"\d+\.\d+\.\d+", timescaledb):
+    if timescaledb and not re.fullmatch(r"\d+\.\d+\.\d+", timescaledb):
         raise click.BadParameter(
             "use a major.minor.patch release", param_hint="--timescaledb"
         )
 
     postgres_major = postgres.split(".", 1)[0]
 
-    if not force and not cli_state.version_manager.is_compatible(
+    if timescaledb and not force and not cli_state.version_manager.is_compatible(
         postgres_major, timescaledb
     ):
         compatible_versions = (
@@ -332,11 +342,12 @@ def new(
         raise click.Abort()
 
     timestamp_hash = hashlib.md5(str(datetime.now()).encode()).hexdigest()[:8]
-    name = f"tsdb-{timestamp_hash}"
+    name = container_name or f"tsdb-{timestamp_hash}"
 
+    postgres_config = None
     if config:
         try:
-            ConfigHandler.parse_file(Path(config))
+            postgres_config = ConfigHandler.parse_file(Path(config))
         except Exception as e:
             click.echo(f"ERROR Failed to parse config: {e}")
             return
@@ -353,22 +364,33 @@ def new(
     if port is None:
         port = NetworkValidator.find_available_port(bind_ip)
 
-    tsdbadmin_password = generate_password()
+    tsdbadmin_password = generate_password() if timescaledb else None
+    command = None
+    if postgres_config:
+        command = ["postgres"]
+        for key, value in postgres_config.raw_settings.items():
+            setting_value = value.strip("'\"")
+            command.extend(["-c", f"{key}={setting_value}"])
 
     try:
         dockerfile_dir = str(get_dockerfiles_dir())
-        image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v4"
-        with spinner(
-            f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image..."
-        ):
-            log(f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image...")
-            cli_state.docker_client.prepare_image(
-                tag=image_tag,
-                dockerfile_dir=dockerfile_dir,
-                build_args={"PG_VERSION": postgres, "TS_VERSION": timescaledb},
-                rebuild=rebuild,
-                pull=False,
+        if timescaledb:
+            image_tag = f"tsdbenv:pg{postgres}-ts{timescaledb}-v4"
+            image_message = (
+                f"Preparing PostgreSQL {postgres} + TimescaleDB {timescaledb} image..."
             )
+            image_args = {"PG_VERSION": postgres, "TS_VERSION": timescaledb}
+            with spinner(image_message):
+                log(image_message)
+                cli_state.docker_client.prepare_image(
+                    tag=image_tag,
+                    dockerfile_dir=dockerfile_dir,
+                    build_args=image_args,
+                    rebuild=rebuild,
+                    pull=False,
+                )
+        else:
+            image_tag = f"postgres:{postgres}"
     except Exception as e:
         click.echo(f"ERROR Failed to prepare container image: {e}")
         raise click.Abort()
@@ -382,10 +404,13 @@ def new(
                 "POSTGRES_PASSWORD": "postgres",
                 "POSTGRESQL_PASSWORD": "postgres",
                 "PGPASSWORD": "postgres",
+                **({"POSTGRES_DB": "tsdb"} if not timescaledb else {}),
             },
             ports={5432: port},
             tsdbadmin_password=tsdbadmin_password,
             bind_ip=bind_ip,
+            command=command,
+            require_extensions=bool(timescaledb),
         )
 
     container = Container(
@@ -407,7 +432,9 @@ def new(
         try:
             with spinner("Waiting for PostgreSQL to be fully ready..."):
                 log("Waiting for PostgreSQL to be fully ready...")
-                cli_state.docker_client.wait_for_postgres(container_id, timeout=60)
+                cli_state.docker_client.wait_for_postgres(
+                    container_id, timeout=60, require_extensions=bool(timescaledb)
+                )
             with spinner("Executing init SQL file..."):
                 log("Executing init SQL file...")
                 cli_state.docker_client.execute_sql_file(container_id, init)
@@ -674,10 +701,15 @@ def show_matrix():
 
 
 def connection_lines(container: Container) -> List[str]:
-    """Return aligned cloud and on-premises psql commands."""
+    """Return connection commands without exposing stored passwords."""
+    if not container.timescaledb_version:
+        return [
+            f'psql "postgresql://postgres:postgres@{container.bind_ip}:{container.port}/tsdb"'
+            "  -- PostgreSQL"
+        ]
     tiger_command = (
-        f'psql "postgresql://tsdbadmin:{container.tsdbadmin_password}'
-        f'@{container.bind_ip}:{container.port}/tsdb"'
+        f'psql "postgresql://tsdbadmin@{container.bind_ip}'
+        f':{container.port}/tsdb"'
     )
     on_prem_command = (
         f'psql "postgresql://postgres:postgres@{container.bind_ip}'
@@ -702,6 +734,8 @@ Connect:
   {on_prem_line}
 """
     )
+    if container.timescaledb_version:
+        click.echo("The tsdbadmin password is stored in the local tsdbenv registry.")
 
 
 def show_interactive_menu() -> None:

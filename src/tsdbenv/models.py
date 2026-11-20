@@ -30,8 +30,8 @@ class Container(BaseModel):
 
     name: str = Field(..., description="Unique container identifier")
     postgres_version: str = Field(..., description="PostgreSQL version (e.g., '14')")
-    timescaledb_version: str = Field(
-        ..., description="TimescaleDB version (e.g., '2.8.0')"
+    timescaledb_version: Optional[str] = Field(
+        None, description="TimescaleDB version, or None for PostgreSQL only"
     )
     created_at: datetime = Field(..., description="Container creation timestamp")
     last_accessed_at: datetime = Field(
@@ -43,7 +43,9 @@ class Container(BaseModel):
     docker_id: str = Field(..., description="Docker container ID")
     port: int = Field(default=5432, description="PostgreSQL port")
     bind_ip: str = Field(default="127.0.0.1", description="IP to bind container to")
-    tsdbadmin_password: str = Field(..., description="tsdbadmin user password")
+    tsdbadmin_password: Optional[str] = Field(
+        None, description="tsdbadmin user password when TimescaleDB is enabled"
+    )
     engine: str = Field(
         default="docker", description="Container engine (docker or podman)"
     )
