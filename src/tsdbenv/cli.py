@@ -278,6 +278,11 @@ def main(ctx, version, engine, verbose):
     help="TimescaleDB version (e.g., 2.8.0); omit for PostgreSQL only",
 )
 @click.option("--port", type=int, default=None, help="PostgreSQL port")
+@click.option(
+    "--shm-size",
+    default=None,
+    help="Shared memory size for the container (e.g., 1g; Docker default if omitted)",
+)
 @click.option("--config", type=click.Path(exists=True), help="PostgreSQL config file")
 @click.option("--name", "container_name", help="Container name (default: generated)")
 @click.option("--bind-ip", help="IP to bind to (default: 127.0.0.1)")
@@ -294,6 +299,7 @@ def new(
     postgres,
     timescaledb,
     port,
+    shm_size,
     config,
     container_name,
     bind_ip,
@@ -409,6 +415,7 @@ def new(
                 **({"POSTGRES_DB": "tsdb"} if not timescaledb else {}),
             },
             ports={5432: port},
+            shm_size=shm_size,
             tsdbadmin_password=tsdbadmin_password,
             bind_ip=bind_ip,
             command=command,

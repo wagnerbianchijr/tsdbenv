@@ -140,6 +140,29 @@ def test_create_container_success():
         assert kwargs["detach"] is True
         assert kwargs["remove"] is False
         assert kwargs["restart_policy"] == {"Name": "unless-stopped"}
+        assert "shm_size" not in kwargs
+
+
+def test_create_container_passes_shared_memory_size():
+    """Pass an explicit shared-memory size through to the Docker engine."""
+    with patch("tsdbenv.docker_utils.docker.from_env") as mock_from_env:
+        fake_client = MagicMock()
+        fake_client.ping.return_value = True
+        mock_from_env.return_value = fake_client
+
+        client = DockerClient()
+        fake_container = MagicMock()
+        fake_container.id = "abc123"
+        fake_client.containers.run.return_value = fake_container
+
+        with patch.object(client, "wait_for_postgres", return_value=True):
+            client.create_container(
+                image="postgres:14-alpine",
+                name="testdb",
+                shm_size="1g",
+            )
+
+        assert fake_client.containers.run.call_args.kwargs["shm_size"] == "1g"
 
 
 def test_create_container_port_conflict():
