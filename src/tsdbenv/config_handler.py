@@ -11,14 +11,37 @@ class ConfigHandler:
     """Parses PostgreSQL configuration files."""
 
     @staticmethod
+    def _strip_inline_comment(line: str) -> str:
+        """Remove an unquoted PostgreSQL comment from a config line."""
+        quote = None
+        index = 0
+        while index < len(line):
+            char = line[index]
+            if quote:
+                if char == "\\":
+                    index += 2
+                    continue
+                if char == quote:
+                    if quote == "'" and line[index : index + 2] == "''":
+                        index += 2
+                        continue
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == "#":
+                return line[:index].rstrip()
+            index += 1
+        return line.rstrip()
+
+    @staticmethod
     def parse_simple_kv(path: Path) -> PostgresConfig:
         """Parse simple key=value configuration file."""
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
         settings = {}
-        for line in path.read_text().strip().split("\n"):
-            line = line.strip()
+        for line in path.read_text().splitlines():
+            line = ConfigHandler._strip_inline_comment(line).strip()
             if not line or line.startswith("#"):
                 continue
 
@@ -39,8 +62,8 @@ class ConfigHandler:
             raise FileNotFoundError(f"Config file not found: {path}")
 
         settings = {}
-        for line in path.read_text().strip().split("\n"):
-            line = line.strip()
+        for line in path.read_text().splitlines():
+            line = ConfigHandler._strip_inline_comment(line).strip()
             if not line or line.startswith("#"):
                 continue
 
@@ -63,11 +86,11 @@ class ConfigHandler:
             raise FileNotFoundError(f"Config file not found: {path}")
 
         content = path.read_text()
-        lines = [
-            line.strip()
-            for line in content.split("\n")
-            if line.strip() and not line.strip().startswith("#")
-        ]
+        lines = []
+        for line in content.splitlines():
+            line = ConfigHandler._strip_inline_comment(line).strip()
+            if line:
+                lines.append(line)
 
         if lines:
             kv_count = sum(1 for line in lines if "=" in line)

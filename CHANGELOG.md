@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- PostgreSQL config parsing now strips inline comments outside quoted values.
+- Startup failures report recent container logs, including when PostgreSQL is
+  restarting, instead of returning only a generic readiness timeout.
+
 ## [1.3.0] - 2026-11-20
 
 ### Added
