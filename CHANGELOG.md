@@ -4,11 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-20
+
+### Added
+
+- `tsdbenv new --shm-size SIZE` to configure the container's shared memory.
+
 ### Fixed
 
 - PostgreSQL config parsing now strips inline comments outside quoted values.
 - Startup failures report recent container logs, including when PostgreSQL is
   restarting, instead of returning only a generic readiness timeout.
+
+### Testing
+
+- 227 unit tests pass.
+- Focused CLI flag and Docker container tests: 110 passed in each of three runs.
+- GitHub Actions passed on Python 3.10, 3.11, and 3.12, with secret scanning and
+  Bandit.
 
 ## [1.3.0] - 2026-11-20
 
@@ -16,7 +29,6 @@ All notable changes to this project will be documented in this file.
 
 - PostgreSQL-only environments with `tsdbenv new --postgres VERSION`.
 - `--name` to choose a container name.
-- `tsdbenv new --shm-size SIZE` to configure the container's shared memory.
 
 ### Changed
 
